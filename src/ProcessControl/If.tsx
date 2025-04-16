@@ -18,13 +18,13 @@ export interface ElseIfProps {
   children?: React.ReactNode;
 }
 
-export const Then: FC<ThenProps> = (props) => {
+const Then: FC<ThenProps> = (props) => {
   return <>{props.children}</>;
 };
-export const Else: FC<ElseProps> = ({ children }) => {
+const Else: FC<ElseProps> = ({ children }) => {
   return <>{children}</>;
 };
-export const ElseIf: FC<ElseIfProps> = (props) => {
+const ElseIf: FC<ElseIfProps> = (props) => {
   return <>{props.children}</>;
 };
 Then.displayName = "If_Then";

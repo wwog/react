@@ -30,25 +30,25 @@ pnpm add @wwog/react
 
 ### 流程控制组件
 
-#### `<If>`, `<Then>`, `<Else>`, `<ElseIf>`
+#### `<If>`
 
 声明式的条件渲染组件，类似于 if-else 语句，但在 JSX 中使用。
 
 ```tsx
-import { If, Then, Else, ElseIf } from '@wwog/react';
+import { If } from '@wwog/react';
 
 function Example({ count }) {
   return (
     <If condition={count > 10}>
-      <Then>
+      <If.Then>
         <p>Count is greater than 10</p>
-      </Then>
-      <ElseIf condition={count > 5}>
+      </If.Then>
+      <If.ElseIf condition={count > 5}>
         <p>Count is greater than 5</p>
-      </ElseIf>
-      <Else>
+      </If.ElseIf>
+      <If.Else>
         <p>Count is 5 or less</p>
-      </Else>
+      </If.Else>
     </If>
   );
 }
@@ -59,23 +59,23 @@ function Example({ count }) {
 类似于 JavaScript 的 switch 语句，但更具声明性和类型安全性。
 
 ```tsx
-import { Switch, Case, Default } from '@wwog/react';
+import { Switch } from '@wwog/react';
 
 function Example({ status }) {
   return (
     <Switch value={status}>
-      <Case value="loading">
+      <Switch.Case value="loading">
         <Loading />
-      </Case>
-      <Case value="success">
+      </Switch.Case>
+      <Switch.Case value="success">
         <Success />
-      </Case>
-      <Case value="error">
+      </Switch.Case>
+      <Switch.Case value="error">
         <Error />
-      </Case>
-      <Default>
+      </Switch.Case>
+      <Switch.Default>
         <p>Unknown status</p>
-      </Default>
+      </Switch.Default>
     </Switch>
   );
 }
