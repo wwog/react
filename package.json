@@ -12,7 +12,7 @@
     "dist",
     "src"
   ],
-  "homepage": "https://github.com/wwog",
+  "homepage": "https://github.com/wwog/react",
   "license": "MIT",
   "scripts": {
     "build": "unbuild",
