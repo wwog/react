@@ -1,0 +1,36 @@
+{
+  "name": "@wwog/react",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "wwog",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.mts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "homepage": "https://github.com/wwog",
+  "license": "MIT",
+  "scripts": {
+    "build": "unbuild",
+    "format": "biome format --write src",
+    "check": "biome check --apply src",
+    "test": "pnpm check && pnpm test:types && vitest run --coverage",
+    "test:types": "tsc --noEmit --skipLibCheck",
+    "preinstall": "npx only-allow pnpm"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@vitest/coverage-v8": "^3.1.1",
+    "typescript": "^5.8.3",
+    "unbuild": "^3.5.0",
+    "vitest": "^3.1.1"
+  },
+  "engines": {
+    "node": ">= 20.0.0",
+    "pnpm": ">=8.15.0"
+  }
+}
