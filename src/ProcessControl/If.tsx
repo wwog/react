@@ -72,19 +72,14 @@ export const If = ({
     return thenChild ? <>{thenChild.props.children}</> : null;
   }
 
-  const matchedElseIf = elseIfChildren.find((child) => {
-    const elseIfProps = child.props as ElseIfProps;
-    return elseIfProps.condition;
-  });
-
-  if (matchedElseIf) {
-    return <>{matchedElseIf.props.children}</>;
+  for (const elseIf of elseIfChildren) {
+    if (elseIf.props.condition) {
+      return <>{elseIf.props.children}</>;
+    }
   }
 
   if (elseChild) {
-    return elseChild ? (
-      <>{(elseChild as React.ReactElement<ElseProps>).props.children}</>
-    ) : null;
+    return <>{(elseChild as React.ReactElement<ElseProps>).props.children}</>;
   }
 
   return null;
