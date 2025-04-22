@@ -35,7 +35,7 @@ pnpm add @wwog/react
 声明式的条件渲染组件，类似于 if-else 语句，但在 JSX 中使用。
 
 ```tsx
-import { If } from '@wwog/react';
+import { If } from "@wwog/react";
 
 function Example({ count }) {
   return (
@@ -59,7 +59,7 @@ function Example({ count }) {
 类似于 JavaScript 的 switch 语句，但更具声明性和类型安全性。
 
 ```tsx
-import { Switch } from '@wwog/react';
+import { Switch } from "@wwog/react";
 
 function Example({ status }) {
   return (
@@ -81,6 +81,38 @@ function Example({ status }) {
 }
 ```
 
+#### <When> (v1.1.5+)
+
+一个简洁的条件渲染组件，支持多条件逻辑组合。比 <If> 更加简洁，适用于简单的条件渲染场景。
+
+```jsx
+import { When } from '@wwog/react';
+
+function Example() {
+  const isAdmin = useIsAdmin();
+  const isLoading = useIsLoading();
+  const hasErrors = useHasErrors();
+
+  return (
+    <>
+      {/* 所有条件都为真时渲染 */}
+      <When all={[isAdmin, !isLoading]}>
+        <AdminPanel />
+      </When>
+
+      {/* 任一条件为真时渲染 */}
+      <When any={[isLoading, hasErrors]} fallback={<ReadyContent />}>
+        <LoadingOrErrorMessage />
+      </When>
+
+      {/* 所有条件都为假时渲染 */}
+      <When none={[isAdmin, isLoading]}>
+        <RegularUserContent />
+      </When>
+    </>
+  );
+```
+
 ### 通用组件
 
 #### `<ArrayRender>`
@@ -88,11 +120,11 @@ function Example({ status }) {
 高效渲染数组数据的工具组件，支持过滤和自定义渲染。
 
 ```tsx
-import { ArrayRender } from '@wwog/react';
+import { ArrayRender } from "@wwog/react";
 
 function UserList({ users }) {
   return (
-    <ArrayRender 
+    <ArrayRender
       items={users}
       filter={(user) => user.active}
       renderItem={(user, index) => (
@@ -110,7 +142,7 @@ function UserList({ users }) {
 创建固定尺寸的容器，用于布局调整和间距控制。
 
 ```tsx
-import { SizeBox } from '@wwog/react';
+import { SizeBox } from "@wwog/react";
 
 function Layout() {
   return (
