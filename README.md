@@ -5,6 +5,10 @@
 [![npm version](https://img.shields.io/npm/v/@wwog/react.svg)](https://www.npmjs.com/package/@wwog/react)
 [![ESM](https://img.shields.io/badge/📦-ESM%20only-brightgreen.svg)](https://nodejs.org/api/esm.html)
 
+---
+
+[English Documentation](./README_en.md)
+
 ## 安装
 
 ```bash
@@ -161,6 +165,67 @@ function UserList({ users }) {
 }
 ```
 
+#### `<Pipe>` (v1.1.7+)
+
+声明式的数据管道处理组件，适合多步骤数据转换和链式处理。
+
+> 声明式数据处理，替代嵌套函数调用。
+> 提高代码可读性，逻辑清晰。
+> 适合数据清洗、格式化等场景。
+
+```tsx
+import { Pipe } from "@wwog/react";
+
+function Example({ users }) {
+  return (
+    <Pipe
+      data={users}
+      transform={[
+        (data) => data.filter(user => user.active),
+        (data) => data.map(user => user.name)
+      ]}
+      render={(names) => <div>{names.join(", ")}</div>}
+      fallback={<div>No Data</div>}
+    />
+  );
+}
+```
+
+- `data`：初始数据。
+- `transform`：数据转换函数数组，按顺序依次处理。
+- `render`：渲染最终结果。
+- `fallback`：结果为 null/undefined 时的兜底内容。
+
+#### `<Scope>` (v1.1.7+)
+
+为子节点提供局部作用域，声明式定义临时变量，简化复杂渲染逻辑。
+
+> 避免在组件外定义临时状态或计算。
+> 声明式定义局部变量，增强代码自包含性。
+> 适合表单、计算密集型渲染等场景。
+
+```tsx
+import { Scope } from "@wwog/react";
+
+function Example() {
+  return (
+    <Scope let={{ count: 1, text: "Hello" }}>
+      {({ count, text }) => <div>{text} {count}</div>}
+    </Scope>
+  );
+}
+
+// 支持函数式 let
+<Scope let={(props) => ({ total: props.items.length })} props={{ items: [1, 2] }} fallback={<div>Empty</div>}>
+  {({ total }) => <div>Total: {total}</div>}
+</Scope>
+```
+
+- `let`：对象或函数，定义作用域变量。
+- `props`：传递给 let 函数的参数。
+- `children`：作用域变量的渲染函数。
+- `fallback`：无内容时的兜底渲染。
+
 #### `<SizeBox>`
 
 创建固定尺寸的容器，用于布局调整和间距控制。
@@ -184,6 +249,21 @@ function Layout() {
 }
 ```
 
+### Ideas
+
+> 需求不高,但有用的组件
+
+- Loop：灵活的迭代渲染，支持数组、对象和范围。
+- Try：封装异步逻辑，处理 Promise 状态。
+- Toggle：基于布尔状态切换 on 和 off 内容。
+- Pick：轻量版值选择渲染，类似枚举匹配。
+- Render：动态渲染函数，简化复杂渲染逻辑。
+- Once：确保内容仅渲染一次，适合初始化。
+- Each：增强列表渲染，支持过滤和排序。
+
+
 ## License
 
 MIT
+
+
