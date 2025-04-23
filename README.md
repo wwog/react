@@ -145,7 +145,7 @@ function Example({ isActive }) {
 
 #### `<ArrayRender>`
 
-高效渲染数组数据的工具组件，支持过滤和自定义渲染。
+内部仅单次循环。高效渲染数组数据的工具组件，支持过滤和自定义渲染。
 
 ```tsx
 import { ArrayRender } from "@wwog/react";
@@ -181,8 +181,8 @@ function Example({ users }) {
     <Pipe
       data={users}
       transform={[
-        (data) => data.filter(user => user.active),
-        (data) => data.map(user => user.name)
+        (data) => data.filter((user) => user.active),
+        (data) => data.map((user) => user.name),
       ]}
       render={(names) => <div>{names.join(", ")}</div>}
       fallback={<div>No Data</div>}
@@ -210,15 +210,23 @@ import { Scope } from "@wwog/react";
 function Example() {
   return (
     <Scope let={{ count: 1, text: "Hello" }}>
-      {({ count, text }) => <div>{text} {count}</div>}
+      {({ count, text }) => (
+        <div>
+          {text} {count}
+        </div>
+      )}
     </Scope>
   );
 }
 
 // 支持函数式 let
-<Scope let={(props) => ({ total: props.items.length })} props={{ items: [1, 2] }} fallback={<div>Empty</div>}>
+<Scope
+  let={(props) => ({ total: props.items.length })}
+  props={{ items: [1, 2] }}
+  fallback={<div>Empty</div>}
+>
   {({ total }) => <div>Total: {total}</div>}
-</Scope>
+</Scope>;
 ```
 
 - `let`：对象或函数，定义作用域变量。
@@ -229,6 +237,8 @@ function Example() {
 #### `<SizeBox>`
 
 创建固定尺寸的容器，用于布局调整和间距控制。
+
+> v1.1.8: Fixed SizeBox not working in 'flex' layouts, add classname props
 
 ```tsx
 import { SizeBox } from "@wwog/react";
@@ -261,9 +271,6 @@ function Layout() {
 - Once：确保内容仅渲染一次，适合初始化。
 - Each：增强列表渲染，支持过滤和排序。
 
-
 ## License
 
 MIT
-
-
