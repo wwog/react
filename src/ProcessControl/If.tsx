@@ -1,4 +1,4 @@
-import React, { type FC } from "react";
+import React, { type FC, type ReactNode } from "react";
 
 export interface IfProps {
   condition: boolean;
@@ -101,4 +101,20 @@ If.createTyped = function () {
     ElseIf: (props: ElseIfProps) => React.ReactElement;
     Else: (props: ElseProps) => React.ReactElement;
   };
+};
+
+export interface TrueProps {
+  condition: boolean;
+  children?: ReactNode;
+}
+export const True: FC<TrueProps> = ({ condition, children }) => {
+  return condition ? <>{children}</> : null;
+};
+
+export interface FalseProps {
+  condition: boolean;
+  children?: ReactNode;
+}
+export const False: FC<FalseProps> = ({ condition, children }) => {
+  return condition === false ? <>{children}</> : null;
 };

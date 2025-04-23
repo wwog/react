@@ -14,12 +14,16 @@ export default defineBuildConfig({
   ],
   clean: true,
   declaration: "node16",
+
   externals: ["react", "react-dom"],
   rollup: {
     emitCJS: false,
     output: {
       format: "esm",
       entryFileNames: "[name].js",
+    },
+    esbuild: {
+      minify: true,
     },
   },
 });
