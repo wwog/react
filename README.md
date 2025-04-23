@@ -113,6 +113,30 @@ function Example() {
   );
 ```
 
+#### `<True>` / `<False>` (v1.1.6+)
+
+用于简化条件渲染的辅助组件，适合简单的布尔判断场景。
+
+```tsx
+import { True, False } from "@wwog/react";
+
+function Example({ isActive }) {
+  return (
+    <>
+      <True condition={isActive}>
+        <p>激活状态</p>
+      </True>
+      <False condition={isActive}>
+        <p>未激活状态</p>
+      </False>
+    </>
+  );
+}
+```
+
+- `<True condition={...}>`：当 condition 为 true 时渲染子内容。
+- `<False condition={...}>`：当 condition 为 false 时渲染子内容。
+
 ### 通用组件
 
 #### `<ArrayRender>`
