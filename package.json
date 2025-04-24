@@ -1,6 +1,6 @@
 {
   "name": "@wwog/react",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "",
   "keywords": [],
   "author": "wwog",
@@ -19,8 +19,7 @@
     "format": "biome format --write src",
     "check": "biome check --apply src",
     "test": "pnpm check && pnpm test:types && vitest run --coverage",
-    "test:types": "tsc --noEmit --skipLibCheck",
-    "preinstall": "npx only-allow pnpm"
+    "test:types": "tsc --noEmit --skipLibCheck"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
