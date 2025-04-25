@@ -141,6 +141,33 @@ function Example({ isActive }) {
 - `<True condition={...}>`：当 condition 为 true 时渲染子内容。
 - `<False condition={...}>`：当 condition 为 false 时渲染子内容。
 
+#### `<Toggle>`
+
+声明式切换组件，在预定义选项中切换值，并通过指定属性传递给子组件，支持自定义切换逻辑。
+
+```tsx
+import { Toggle } from "@wwog/react";
+
+interface ThemeChildProps {
+  theme: string;
+  toggleTheme: () => void;
+}
+const ThemeChild: React.FC<ThemeChildProps> = ({ theme, toggleTheme }) => (
+  <div onClick={toggleTheme}>当前主题: {theme}</div>
+);
+
+<Toggle source="light" options={["light", "dark"]} target="theme" toggleTarget="toggleTheme">
+  <ThemeChild />
+</Toggle>
+```
+
+- `source`：初始切换值。
+- `options`：可切换的值数组。
+- `target`：传递切换值给子节点的属性名，默认 value。
+- `toggleTarget`：传递切换函数给子节点的属性名，默认 toggle。
+- `next`：自定义切换逻辑函数。
+- `children`：渲染内容。
+
 ### 通用组件
 
 #### `<ArrayRender>`

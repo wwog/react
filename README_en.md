@@ -9,7 +9,6 @@ A practical React component library providing declarative flow control and commo
 
 [中文文档](./README.md)
 
-
 ## Installation
 
 ```bash
@@ -61,7 +60,7 @@ function Example({ count }) {
 
 #### `<Switch>`, `<Case>`, `<Default>`
 
-Declarative and type-safe alternative to JavaScript's switch statement.
+A declarative and type-safe alternative to JavaScript's switch statement.
 
 ```tsx
 import { Switch } from "@wwog/react";
@@ -143,6 +142,33 @@ function Example({ isActive }) {
 - `<True condition={...}>`: Renders children when condition is true.
 - `<False condition={...}>`: Renders children when condition is false.
 
+#### `<Toggle>`
+
+A declarative toggle component that switches values among predefined options and passes them to child components via specified props, supporting custom toggle logic.
+
+```tsx
+import { Toggle } from "@wwog/react";
+
+interface ThemeChildProps {
+  theme: string;
+  toggleTheme: () => void;
+}
+const ThemeChild: React.FC<ThemeChildProps> = ({ theme, toggleTheme }) => (
+  <div onClick={toggleTheme}>Current theme: {theme}</div>
+);
+
+<Toggle source="light" options={["light", "dark"]} target="theme" toggleTarget="toggleTheme">
+  <ThemeChild />
+</Toggle>
+```
+
+- `source`: Initial toggle value.
+- `options`: Array of values to toggle between.
+- `target`: Prop name to pass the toggle value to the child, default is value.
+- `toggleTarget`: Prop name to pass the toggle function to the child, default is toggle.
+- `next`: Custom toggle logic function.
+- `children`: Render content.
+
 ### Utility Components
 
 #### `<ArrayRender>`
@@ -183,8 +209,8 @@ function Example({ users }) {
     <Pipe
       data={users}
       transform={[
-        (data) => data.filter(user => user.active),
-        (data) => data.map(user => user.name)
+        (data) => data.filter((user) => user.active),
+        (data) => data.map((user) => user.name),
       ]}
       render={(names) => <div>{names.join(", ")}</div>}
       fallback={<div>No Data</div>}
@@ -212,15 +238,23 @@ import { Scope } from "@wwog/react";
 function Example() {
   return (
     <Scope let={{ count: 1, text: "Hello" }}>
-      {({ count, text }) => <div>{text} {count}</div>}
+      {({ count, text }) => (
+        <div>
+          {text} {count}
+        </div>
+      )}
     </Scope>
   );
 }
 
 // Function-style let is supported
-<Scope let={(props) => ({ total: props.items.length })} props={{ items: [1, 2] }} fallback={<div>Empty</div>}>
+<Scope
+  let={(props) => ({ total: props.items.length })}
+  props={{ items: [1, 2] }}
+  fallback={<div>Empty</div>}
+>
   {({ total }) => <div>Total: {total}</div>}
-</Scope>
+</Scope>;
 ```
 
 - `let`: Object or function defining scope variables.
@@ -231,6 +265,8 @@ function Example() {
 #### `<SizeBox>`
 
 Create a fixed-size container for layout adjustment and spacing control.
+
+> v1.1.8: Fixed SizeBox not working in 'flex' layouts, add classname props
 
 ```tsx
 import { SizeBox } from "@wwog/react";
@@ -263,8 +299,4 @@ function Layout() {
 - Once: Ensure content is rendered only once, suitable for initialization.
 - Each: Enhanced list rendering, supports filtering and sorting.
 
-
 ## License
-
-MIT
-
