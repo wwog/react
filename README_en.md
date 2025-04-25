@@ -149,17 +149,8 @@ A declarative toggle component that switches values among predefined options and
 ```tsx
 import { Toggle } from "@wwog/react";
 
-interface ThemeChildProps {
-  theme: string;
-  toggleTheme: () => void;
-}
-const ThemeChild: React.FC<ThemeChildProps> = ({ theme, toggleTheme }) => (
-  <div onClick={toggleTheme}>Current theme: {theme}</div>
-);
+<Toggle options={["light", "dark"]} render={(value,toggle)=>{/* xxx */}}/>
 
-<Toggle source="light" options={["light", "dark"]} target="theme" toggleTarget="toggleTheme">
-  <ThemeChild />
-</Toggle>
 ```
 
 - `options`: Array of values to toggle between.
@@ -167,7 +158,7 @@ const ThemeChild: React.FC<ThemeChildProps> = ({ theme, toggleTheme }) => (
 - `target`: Prop name to pass the toggle value to the child, default is value.
 - `toggleTarget`: Prop name to pass the toggle function to the child, default is toggle.
 - `next`: Custom toggle logic function.
-- `children`: Render content.
+- `render`: Render Function.
 
 ### Utility Components
 

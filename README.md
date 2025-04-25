@@ -150,17 +150,7 @@ function Example({ isActive }) {
 ```tsx
 import { Toggle } from "@wwog/react";
 
-interface ThemeChildProps {
-  theme: string;
-  toggleTheme: () => void;
-}
-const ThemeChild: React.FC<ThemeChildProps> = ({ theme, toggleTheme }) => (
-  <div onClick={toggleTheme}>当前主题: {theme}</div>
-);
-
-<Toggle source="light" options={["light", "dark"]} target="theme" toggleTarget="toggleTheme">
-  <ThemeChild />
-</Toggle>
+<Toggle options={["light", "dark"]} render={(value,toggle)=>{/* xxx */}}/>
 ```
 
 - `options`：可切换的值数组。
@@ -168,7 +158,7 @@ const ThemeChild: React.FC<ThemeChildProps> = ({ theme, toggleTheme }) => (
 - `target`：传递切换值给子节点的属性名，默认 value。
 - `toggleTarget`：传递切换函数给子节点的属性名，默认 toggle。
 - `next`：自定义切换逻辑函数。
-- `children`：渲染内容。
+- `render`：渲染函数。
 
 ### 通用组件
 
