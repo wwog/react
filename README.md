@@ -141,7 +141,7 @@ function Example({ isActive }) {
 - `<True condition={...}>`：当 condition 为 true 时渲染子内容。
 - `<False condition={...}>`：当 condition 为 false 时渲染子内容。
 
-#### `<Toggle>`
+#### `<Toggle>` (v1.2.0+)
 
 声明式切换组件，在预定义选项中切换值，并通过指定属性传递给子组件，支持自定义切换逻辑。
 
@@ -297,6 +297,15 @@ function Layout() {
 - Render：动态渲染函数，简化复杂渲染逻辑。
 - Once：确保内容仅渲染一次，适合初始化。
 - Each：增强列表渲染，支持过滤和排序。
+
+### hooks
+
+- 一些常用的hooks的封装
+
+### useControlled (v1.2.0+)
+
+- 受控组件和非受控组件的切换,方便组件开发
+
 
 ## License
 
