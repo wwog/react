@@ -162,8 +162,8 @@ const ThemeChild: React.FC<ThemeChildProps> = ({ theme, toggleTheme }) => (
 </Toggle>
 ```
 
-- `source`: Initial toggle value.
 - `options`: Array of values to toggle between.
+- `index`: Initial Options index.
 - `target`: Prop name to pass the toggle value to the child, default is value.
 - `toggleTarget`: Prop name to pass the toggle function to the child, default is toggle.
 - `next`: Custom toggle logic function.
@@ -300,7 +300,6 @@ function Layout() {
 
 - Loop: Flexible iteration rendering, supports arrays, objects, and ranges.
 - Try: Encapsulate async logic, handle Promise states.
-- Toggle: Switch on/off content based on boolean state.
 - Pick: Lightweight value selection rendering, similar to enum matching.
 - Render: Dynamic render function, simplifies complex rendering logic.
 - Once: Ensure content is rendered only once, suitable for initialization.

@@ -145,6 +145,8 @@ function Example({ isActive }) {
 
 声明式切换组件，在预定义选项中切换值，并通过指定属性传递给子组件，支持自定义切换逻辑。
 
+> v1.2.1 Indexing is now used to fix bugs with arbitrary values
+
 ```tsx
 import { Toggle } from "@wwog/react";
 
@@ -161,8 +163,8 @@ const ThemeChild: React.FC<ThemeChildProps> = ({ theme, toggleTheme }) => (
 </Toggle>
 ```
 
-- `source`：初始切换值。
 - `options`：可切换的值数组。
+- `index`：默认:0。
 - `target`：传递切换值给子节点的属性名，默认 value。
 - `toggleTarget`：传递切换函数给子节点的属性名，默认 toggle。
 - `next`：自定义切换逻辑函数。
@@ -292,7 +294,6 @@ function Layout() {
 
 - Loop：灵活的迭代渲染，支持数组、对象和范围。
 - Try：封装异步逻辑，处理 Promise 状态。
-- Toggle：基于布尔状态切换 on 和 off 内容。
 - Pick：轻量版值选择渲染，类似枚举匹配。
 - Render：动态渲染函数，简化复杂渲染逻辑。
 - Once：确保内容仅渲染一次，适合初始化。

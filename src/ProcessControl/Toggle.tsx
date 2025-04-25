@@ -1,11 +1,12 @@
-import React, { ReactNode, useState, useMemo } from "react";
+import React, { ReactNode, useState, useMemo, useEffect } from "react";
 
 export interface ToggleProps<T = boolean> {
   /**
    * @description_en The initial value to toggle.
    * @description_zh 初始切换值。
+   * @default 0
    */
-  source: T;
+  index?: number;
   /**
    * @description_en Array of values to toggle between.
    * @description_zh 可切换的值数组。
@@ -24,11 +25,11 @@ export interface ToggleProps<T = boolean> {
    */
   toggleTarget?: string;
   /**
-   * @description_en Function to determine the next value in the toggle sequence.
-   * @description_zh 确定切换序列中下一个值的函数。
+   * @description_en Function to determine the next value index in the toggle sequence.
+   * @description_zh 确定切换序列中下一个值索引的函数。
    * @optional
    */
-  next?: (current: T, options: T[]) => T;
+  next?: (curIndex: number, options: T[]) => number;
   /**
    * @description_en Content to render, receiving the toggled value and toggle function via the target and toggleTarget props.
    * @description_zh 渲染的内容，通过 target 和 toggleTarget 属性接收切换后的值和切换函数。
@@ -62,7 +63,9 @@ export interface ToggleProps<T = boolean> {
  *   options={[1, 2, 3]}
  *   target="value"
  *   toggleTarget="toggleValue"
- *   next={(current, options) => options[(options.indexOf(current) + 1) % options.length]}
+ *   next={(currentIndex, options) => {
+ *     return (currentIndex + 1) % options.length;
+ *   }}
  * >
  *   <ValueChild />
  * </Toggle>
@@ -70,33 +73,41 @@ export interface ToggleProps<T = boolean> {
  */
 export const Toggle = <T,>(props: ToggleProps<T>) => {
   const {
-    source,
+    index = 0,
     options,
     target = "value",
     toggleTarget = "toggle",
     next,
     children,
   } = props;
-  const defaultValue = useMemo(() => {
-    return options.includes(source) ? source : options[0];
-  }, [source, options]);
 
-  const [currentValue, setCurrentValue] = useState<T>(defaultValue);
+  useEffect(() => {
+    if (options.length < index + 1) {
+      throw new Error(
+        `Index ${index} is out of bounds for options array of length ${options.length}. Defaulting to first option.`
+      );
+    }
+  }, [index, options]);
+
+  const [curIndex, setCurIndex] = useState<number>(index);
+  const nextIndex = () => {
+    if (next) {
+      return next(curIndex, options);
+    }
+    return (curIndex + 1) % options.length;
+  };
 
   const toggle = () => {
-    setCurrentValue((prev) => {
+    setCurIndex((prev) => {
       if (!options.length) return prev;
-      const nextValue = next
-        ? next(prev, options)
-        : options[(options.indexOf(prev) + 1) % options.length] || options[0];
-      return nextValue;
+      return nextIndex();
     });
   };
 
   return React.Children.map(children, (child) => {
     if (React.isValidElement(child)) {
       return React.cloneElement(child, {
-        [target]: currentValue,
+        [target]: curIndex,
         [toggleTarget]: toggle,
       } as { [key: string]: any });
     }
