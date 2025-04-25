@@ -155,8 +155,6 @@ import { Toggle } from "@wwog/react";
 
 - `options`：可切换的值数组。
 - `index`：默认:0。
-- `target`：传递切换值给子节点的属性名，默认 value。
-- `toggleTarget`：传递切换函数给子节点的属性名，默认 toggle。
 - `next`：自定义切换逻辑函数。
 - `render`：渲染函数。
 

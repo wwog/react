@@ -155,8 +155,6 @@ import { Toggle } from "@wwog/react";
 
 - `options`: Array of values to toggle between.
 - `index`: Initial Options index.
-- `target`: Prop name to pass the toggle value to the child, default is value.
-- `toggleTarget`: Prop name to pass the toggle function to the child, default is toggle.
 - `next`: Custom toggle logic function.
 - `render`: Render Function.
 
