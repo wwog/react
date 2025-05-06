@@ -150,7 +150,12 @@ function Example({ isActive }) {
 ```tsx
 import { Toggle } from "@wwog/react";
 
-<Toggle options={["light", "dark"]} render={(value,toggle)=>{/* xxx */}}/>
+<Toggle
+  options={["light", "dark"]}
+  render={(value, toggle) => {
+    /* xxx */
+  }}
+/>;
 ```
 
 - `options`：可切换的值数组。
@@ -251,6 +256,37 @@ function Example() {
 - `children`：作用域变量的渲染函数。
 - `fallback`：无内容时的兜底渲染。
 
+#### `<DateRender>` (v1.2.3+)
+
+一个声明式组件，用于格式化并渲染日期，简单易用且支持自定义格式化。
+
+```tsx
+import { DateRender } from "@wwog/react";
+
+function Example() {
+  return (
+    <>
+      {/* 使用默认格式化 */}
+      <DateRender source="2025-05-06">
+        {(formatted) => <div>日期: {formatted}</div>}
+      </DateRender>
+
+      {/* 使用自定义格式化 */}
+      <DateRender
+        source={new Date()}
+        format={(date) => date.toLocaleDateString("zh-CN")}
+      >
+        {(formatted) => <div>日期: {formatted}</div>}
+      </DateRender>
+    </>
+  );
+}
+```
+
+- `source`：要渲染的输入日期（Date 对象、ISO 字符串或时间戳）。
+- `format`：可选的格式化日期的函数，默认使用 `toLocaleString()`。
+- `children`：渲染格式化后日期的函数，接收格式化后的日期作为参数。
+
 #### `<SizeBox>`
 
 创建固定尺寸的容器，用于布局调整和间距控制。
@@ -276,25 +312,20 @@ function Layout() {
 }
 ```
 
-### Ideas
-
-> 需求不高,但有用的组件
-
-- Loop：灵活的迭代渲染，支持数组、对象和范围。
-- Try：封装异步逻辑，处理 Promise 状态。
-- Pick：轻量版值选择渲染，类似枚举匹配。
-- Render：动态渲染函数，简化复杂渲染逻辑。
-- Once：确保内容仅渲染一次，适合初始化。
-- Each：增强列表渲染，支持过滤和排序。
-
 ### hooks
 
-- 一些常用的hooks的封装
+- 一些常用的 hooks 的封装
 
-### useControlled (v1.2.0+)
+#### useControlled (v1.2.0+)
 
 - 受控组件和非受控组件的切换,方便组件开发
 
+### method
+
+- 用于部分组件的内部函数,如需要也可使用
+
+formatDate  比较标准的格式化时间函数
+childrenLoop 可以中断的子节点遍历，让一些分支流程拥有极致性能
 
 ## License
 

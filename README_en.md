@@ -90,7 +90,7 @@ function Example({ status }) {
 A concise conditional rendering component supporting multiple logic combinations. More succinct than <If>, suitable for simple conditions.
 
 ```jsx
-import { When } from '@wwog/react';
+import { When } from "@wwog/react";
 
 function Example() {
   const isAdmin = useIsAdmin();
@@ -149,8 +149,12 @@ A declarative toggle component that switches values among predefined options and
 ```tsx
 import { Toggle } from "@wwog/react";
 
-<Toggle options={["light", "dark"]} render={(value,toggle)=>{/* xxx */}}/>
-
+<Toggle
+  options={["light", "dark"]}
+  render={(value, toggle) => {
+    /* xxx */
+  }}
+/>;
 ```
 
 - `options`: Array of values to toggle between.
@@ -251,6 +255,37 @@ function Example() {
 - `children`: Render function for scope variables.
 - `fallback`: Fallback content when empty.
 
+#### `<DateRender>` (v1.2.3+)
+
+A declarative component for formatting and rendering dates, simple to use with support for custom formatting.
+
+```tsx
+import { DateRender } from "@wwog/react";
+
+function Example() {
+  return (
+    <>
+      {/* Using default formatting */}
+      <DateRender source="2025-05-06">
+        {(formatted) => <div>Date: {formatted}</div>}
+      </DateRender>
+
+      {/* Using custom formatting */}
+      <DateRender
+        source={new Date()}
+        format={(date) => date.toLocaleDateString("en-US")}
+      >
+        {(formatted) => <div>Date: {formatted}</div>}
+      </DateRender>
+    </>
+  );
+}
+```
+
+- `source`: The input date to render (Date object, ISO string, or timestamp).
+- `format`: Optional function to format the date, defaults to `toLocaleString()`.
+- `children`: Function to render the formatted date, receives the formatted date as an argument.
+
 #### `<SizeBox>`
 
 Create a fixed-size container for layout adjustment and spacing control.
@@ -282,16 +317,12 @@ function Layout() {
 
 - Applied to states that can be controlled or uncontrolled components
 
+### method
 
-### Ideas
+> Internal functions used by some components, which can also be used if needed
 
-> Not high demand, but useful components
+1.formatDate: A relatively standard date formatting function
 
-- Loop: Flexible iteration rendering, supports arrays, objects, and ranges.
-- Try: Encapsulate async logic, handle Promise states.
-- Pick: Lightweight value selection rendering, similar to enum matching.
-- Render: Dynamic render function, simplifies complex rendering logic.
-- Once: Ensure content is rendered only once, suitable for initialization.
-- Each: Enhanced list rendering, supports filtering and sorting.
+2.childrenLoop: Interruptible child node traversal, enabling some branch processes to have ultimate performance
 
 ## License
