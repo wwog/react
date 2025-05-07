@@ -313,19 +313,20 @@ function Layout() {
 
 #### `<ClassName>` (v1.2.5+)
 
-A component for writing className in a categorized way, with built-in functionality similar to `clsx`, and removes duplicate classNames. Supports managing class names for various states like base, hover, active, etc.
+A component for writing className in a categorized way, with built-in functionality similar to `clsx`, and removes duplicate classNames.
 
 ```tsx
 import { ClassName } from "@wwog/react";
 
 function Example() {
   return (
-    <ClassName 
+    <ClassName
       className={{
         base: "p-2 bg-white",
         hover: "hover:bg-gray-100",
         active: "active:bg-gray-200",
-        focus: "focus:ring-2"
+        focus: "focus:ring-2",
+        other: "button",
       }}
     >
       <button>Click me</button>
@@ -383,11 +384,12 @@ import { cn } from "@wwog/react";
 
 function Example({ isActive, isDisabled }) {
   return (
-    <div className={cn(
-      "base-class",
-      ["array-class-1", "array-class-2"],
-      { "active-class": isActive, "disabled-class": isDisabled }
-    )}>
+    <div
+      className={cn("base-class", ["array-class-1", "array-class-2"], {
+        "active-class": isActive,
+        "disabled-class": isDisabled,
+      })}
+    >
       Content
     </div>
   );
@@ -395,6 +397,7 @@ function Example({ isActive, isDisabled }) {
 ```
 
 Supports various parameter types:
+
 - String: `"class1 class2"`
 - String array: `["class1", "class2"]`
 - Object: `{ "class1": true, "class2": false }`

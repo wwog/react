@@ -314,7 +314,7 @@ function Layout() {
 
 #### `<ClassName>` (v1.2.5+)
 
-用于将 CSS 类名分类编写的组件，内置类似`clsx`的功能，并且可以去除重复的 className。支持基础类、悬停态、激活态等多种状态的类名管理。
+用于将 CSS 类名分类编写的组件，内置类似`clsx`的功能，并且可以去除重复的 className。
 
 ```tsx
 import { ClassName } from "@wwog/react";
@@ -327,6 +327,7 @@ function Example() {
         hover: "hover:bg-gray-100",
         active: "active:bg-gray-200",
         focus: "focus:ring-2",
+        other: "button",
       }}
     >
       <button>点击我</button>
