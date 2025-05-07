@@ -312,6 +312,47 @@ function Layout() {
 }
 ```
 
+#### `<ClassName>` (v1.2.5+)
+
+用于将 CSS 类名分类编写的组件，内置类似`clsx`的功能，并且可以去除重复的 className。支持基础类、悬停态、激活态等多种状态的类名管理。
+
+```tsx
+import { ClassName } from "@wwog/react";
+
+function Example() {
+  return (
+    <ClassName
+      className={{
+        base: "p-2 bg-white",
+        hover: "hover:bg-gray-100",
+        active: "active:bg-gray-200",
+        focus: "focus:ring-2",
+      }}
+    >
+      <button>点击我</button>
+    </ClassName>
+  );
+}
+```
+
+还可以使用容器包装元素：
+
+```tsx
+<ClassName
+  className={{
+    base: ["p-2", { "bg-red-500": isError }],
+    hover: { "hover:bg-blue-500": true },
+  }}
+  asWrapper="span"
+>
+  内容
+</ClassName>
+```
+
+- `className`：分类的类名对象，支持各种状态的类名（base, hover, active, focus, disabled 等）
+- `asWrapper`：是否生成包含所有 className 的 wrapper，默认 false，传递标签名如'div'或'span'
+- `children`：子元素，通常是一个 React 元素
+
 ### hooks
 
 - 一些常用的 hooks 的封装
@@ -324,11 +365,45 @@ function Layout() {
 
 - 用于部分组件的内部函数,如需要也可使用
 
-formatDate 比较标准的格式化时间函数
+#### `formatDate`
 
-childrenLoop 可以中断的子节点遍历，让一些分支流程拥有极致性能
+比较标准的格式化时间函数
 
-Counter 计数器
+#### `childrenLoop`
+
+可以中断的子节点遍历，让一些分支流程拥有极致性能
+
+#### `Counter`
+
+计数器
+
+#### `cn` (v1.2.5+)
+
+一个高效的 CSS 类名合并工具函数，类似于`clsx`或`classnames`，但能自动去除重复的类名。
+
+```tsx
+import { cn } from "@wwog/react";
+
+function Example({ isActive, isDisabled }) {
+  return (
+    <div
+      className={cn("base-class", ["array-class-1", "array-class-2"], {
+        "active-class": isActive,
+        "disabled-class": isDisabled,
+      })}
+    >
+      内容
+    </div>
+  );
+}
+```
+
+支持多种参数类型：
+
+- 字符串: `"class1 class2"`
+- 字符串数组: `["class1", "class2"]`
+- 对象: `{ "class1": true, "class2": false }`
+- 以上类型的任意组合
 
 ## License
 

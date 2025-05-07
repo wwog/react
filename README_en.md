@@ -311,6 +311,47 @@ function Layout() {
 }
 ```
 
+#### `<ClassName>` (v1.2.5+)
+
+A component for writing className in a categorized way, with built-in functionality similar to `clsx`, and removes duplicate classNames. Supports managing class names for various states like base, hover, active, etc.
+
+```tsx
+import { ClassName } from "@wwog/react";
+
+function Example() {
+  return (
+    <ClassName 
+      className={{
+        base: "p-2 bg-white",
+        hover: "hover:bg-gray-100",
+        active: "active:bg-gray-200",
+        focus: "focus:ring-2"
+      }}
+    >
+      <button>Click me</button>
+    </ClassName>
+  );
+}
+```
+
+You can also use a wrapper container element:
+
+```tsx
+<ClassName
+  className={{
+    base: ["p-2", { "bg-red-500": isError }],
+    hover: { "hover:bg-blue-500": true },
+  }}
+  asWrapper="span"
+>
+  Content
+</ClassName>
+```
+
+- `className`: Object with categorized class names, supporting various states (base, hover, active, focus, disabled, etc.)
+- `asWrapper`: Whether to generate a wrapper containing all classNames, default is false, pass a tag name like 'div' or 'span'
+- `children`: Child elements, typically a React element
+
 ### hooks
 
 #### useControlled
@@ -321,10 +362,42 @@ function Layout() {
 
 > Internal functions used by some components, which can also be used if needed
 
-1.`formatDate`: A relatively standard date formatting function
+#### `formatDate`
 
-2.`childrenLoop`: Interruptible child node traversal, enabling some branch processes to have ultimate performance
+A relatively standard date formatting function
 
-3.`Counter` : incrementally class
+#### `childrenLoop`
+
+Interruptible child node traversal, enabling some branch processes to have ultimate performance
+
+#### `Counter`
+
+Incrementally class
+
+#### `cn` (v1.2.5+)
+
+An efficient CSS class name merging utility function, similar to `clsx` or `classnames`, but automatically removes duplicate class names.
+
+```tsx
+import { cn } from "@wwog/react";
+
+function Example({ isActive, isDisabled }) {
+  return (
+    <div className={cn(
+      "base-class",
+      ["array-class-1", "array-class-2"],
+      { "active-class": isActive, "disabled-class": isDisabled }
+    )}>
+      Content
+    </div>
+  );
+}
+```
+
+Supports various parameter types:
+- String: `"class1 class2"`
+- String array: `["class1", "class2"]`
+- Object: `{ "class1": true, "class2": false }`
+- Any combination of the above types
 
 ## License

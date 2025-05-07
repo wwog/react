@@ -1,5 +1,5 @@
 import React from "react";
-import { childrenLoop } from "../utils";
+import { childrenLoop } from "../../utils";
 
 export interface SwitchProps<T> {
   value: T;
