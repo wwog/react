@@ -320,12 +320,15 @@ function Layout() {
 
 - 受控组件和非受控组件的切换,方便组件开发
 
-### method
+### utils
 
 - 用于部分组件的内部函数,如需要也可使用
 
-formatDate  比较标准的格式化时间函数
+formatDate 比较标准的格式化时间函数
+
 childrenLoop 可以中断的子节点遍历，让一些分支流程拥有极致性能
+
+Counter 计数器
 
 ## License
 

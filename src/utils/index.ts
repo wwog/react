@@ -139,3 +139,15 @@ export function formatDate(schema: string, date?: Date): string {
     }
   );
 }
+
+export class Counter {
+  count = 0;
+
+  /**
+   * @description 获取下一个计数值,不考虑越界。
+   * @description_en Get the next count value, without considering overflow.
+   */
+  next() {
+    return this.count++;
+  }
+}

@@ -317,12 +317,14 @@ function Layout() {
 
 - Applied to states that can be controlled or uncontrolled components
 
-### method
+### utils
 
 > Internal functions used by some components, which can also be used if needed
 
-1.formatDate: A relatively standard date formatting function
+1.`formatDate`: A relatively standard date formatting function
 
-2.childrenLoop: Interruptible child node traversal, enabling some branch processes to have ultimate performance
+2.`childrenLoop`: Interruptible child node traversal, enabling some branch processes to have ultimate performance
+
+3.`Counter` : incrementally class
 
 ## License
