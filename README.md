@@ -5,6 +5,8 @@
 [![npm version](https://img.shields.io/npm/v/@wwog/react.svg)](https://www.npmjs.com/package/@wwog/react)
 [![ESM](https://img.shields.io/badge/📦-ESM%20only-brightgreen.svg)](https://nodejs.org/api/esm.html)
 
+>
+
 ---
 
 [English Documentation](./README_en.md)
@@ -29,6 +31,7 @@ pnpm add @wwog/react
 - **零依赖**：仅依赖 React 和 React DOM 作为 peer dependencies
 - **声明式流程控制**：JSX 风格的条件渲染和流程控制组件
 - **通用工具组件**：简单实用的常见 UI 工具组件
+- **轻量高效** 性能优越，体积小巧
 
 ## 组件和用法
 

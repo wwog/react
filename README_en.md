@@ -29,6 +29,7 @@ pnpm add @wwog/react
 - **Zero dependencies**: Only React and React DOM as peer dependencies
 - **Declarative flow control**: JSX-style conditional rendering and flow control components
 - **Utility components**: Simple and practical common UI utility components
+- **Lightweight and efficient** Excellent performance and compact size
 
 ## Components & Usage
 
