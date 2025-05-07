@@ -1,5 +1,5 @@
 import React from "react";
-import { childrenLoop } from "../../utils";
+import { childrenLoop } from "../../utils/reactUtils";
 
 export interface SwitchProps<T> {
   value: T;
@@ -120,5 +120,5 @@ Switch.createTyped = function <T>() {
     Switch: (props: SwitchProps<T>) => React.ReactElement | null;
     Case: (props: SwitchCaseProps<T>) => React.ReactElement;
     Default: (props: SwitchDefaultProps) => React.ReactElement;
-  } 
+  };
 };

@@ -6,7 +6,7 @@ import React, {
   useEffect,
   type HTMLElementType,
 } from "react";
-import { cx, type CxInput } from "../../utils";
+import { cx, type CxInput } from "../../utils/cx";
 
 export interface ClassNameProps {
   className?: {

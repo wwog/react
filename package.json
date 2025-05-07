@@ -1,6 +1,6 @@
 {
   "name": "@wwog/react",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "",
   "keywords": [],
   "author": "wwog",
@@ -17,9 +17,10 @@
   "scripts": {
     "build": "unbuild",
     "format": "biome format --write src",
-    "check": "biome check --apply src",
-    "test": "pnpm check && pnpm test:types && vitest run --coverage",
-    "test:types": "tsc --noEmit --skipLibCheck"
+    "check": "biome check --write src",
+    "test": "vitest run",
+    "test:types": "tsc --noEmit --skipLibCheck",
+    "all-suites": "pnpm run format && pnpm run check && pnpm run test:types && pnpm run test"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

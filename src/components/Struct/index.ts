@@ -1,2 +1,2 @@
-export * from "./ArrayRender";
-export * from "./DateRender";
+export * from './ArrayRender'
+export * from './DateRender'

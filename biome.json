@@ -1,13 +1,8 @@
 {
   "$schema": "https://biomejs.dev/schemas/1.4.1/schema.json",
   "files": {
-    "include": [
-      "src/**/*.ts"
-    ],
-    "ignore": [
-      "**/node_modules/**/*",
-      "**/dist/**/*"
-    ]
+    "include": ["src/**/*.ts"],
+    "ignore": ["**/node_modules/**/*", "**/dist/**/*"]
   },
   "extends": [],
   "organizeImports": {
@@ -23,7 +18,8 @@
       },
       "suspicious": {
         "noEmptyInterface": "off",
-        "noExplicitAny": "off"
+        "noExplicitAny": "off",
+        "noConfusingVoidType": "off"
       },
       "style": {
         "useTemplate": "warn",
@@ -44,7 +40,6 @@
       "semicolons": "asNeeded",
       "lineWidth": 100,
       "quoteStyle": "single",
-      "trailingComma": "all",
       "bracketSpacing": false,
       "indentStyle": "space"
     }
