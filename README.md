@@ -1,45 +1,43 @@
 # @wwog/react
 
-一个实用的 React 组件库，提供声明式流程控制组件和常用 UI 工具组件，使您的 React 代码更加简洁和可读。
+A practical React component library providing declarative flow control and common UI utility components to make your React code more concise and readable.
 
 [![npm version](https://img.shields.io/npm/v/@wwog/react.svg)](https://www.npmjs.com/package/@wwog/react)
 [![ESM](https://img.shields.io/badge/📦-ESM%20only-brightgreen.svg)](https://nodejs.org/api/esm.html)
 
->
-
 ---
 
-[English Documentation](./README_en.md)
+[中文文档](./README_zh.md)
 
-## 安装
+## Installation
 
 ```bash
-# 使用 npm
+# Using npm
 npm install @wwog/react
 
-# 使用 yarn
+# Using yarn
 yarn add @wwog/react
 
-# 使用 pnpm
+# Using pnpm
 pnpm add @wwog/react
 ```
 
-## 功能特性
+## Features
 
-- **仅 ESModule**：现代化的模块系统支持
-- **完全类型支持**：用 TypeScript 编写，提供完整的类型定义
-- **零依赖**：仅依赖 React 和 React DOM 作为 peer dependencies
-- **声明式流程控制**：JSX 风格的条件渲染和流程控制组件
-- **通用工具组件**：简单实用的常见 UI 工具组件
-- **轻量高效** 性能优越，体积小巧
+- **ESModule only**: Modern module system support
+- **Full TypeScript support**: Written in TypeScript with complete type definitions
+- **Zero dependencies**: Only React and React DOM as peer dependencies
+- **Declarative flow control**: JSX-style conditional rendering and flow control components
+- **Utility components**: Simple and practical common UI utility components
+- **Lightweight and efficient** Excellent performance and compact size
 
-## 组件和用法
+## Components & Usage
 
-### 流程控制组件
+### Flow Control Components
 
 #### `<If>`
 
-声明式的条件渲染组件，类似于 if-else 语句，但在 JSX 中使用。
+A declarative conditional rendering component, similar to if-else statements but used in JSX.
 
 ```tsx
 import { If } from "@wwog/react";
@@ -63,7 +61,7 @@ function Example({ count }) {
 
 #### `<Switch>`, `<Case>`, `<Default>`
 
-类似于 JavaScript 的 switch 语句，但更具声明性和类型安全性。
+A declarative and type-safe alternative to JavaScript's switch statement.
 
 ```tsx
 import { Switch } from "@wwog/react";
@@ -90,10 +88,10 @@ function Example({ status }) {
 
 #### `<When>` (v1.1.5+)
 
-一个简洁的条件渲染组件，支持多条件逻辑组合。比 <If> 更加简洁，适用于简单的条件渲染场景。
+A concise conditional rendering component supporting multiple logic combinations. More succinct than <If>, suitable for simple conditions.
 
 ```jsx
-import { When } from '@wwog/react';
+import { When } from "@wwog/react";
 
 function Example() {
   const isAdmin = useIsAdmin();
@@ -102,27 +100,28 @@ function Example() {
 
   return (
     <>
-      {/* 所有条件都为真时渲染 */}
+      {/* Render when all conditions are true */}
       <When all={[isAdmin, !isLoading]}>
         <AdminPanel />
       </When>
 
-      {/* 任一条件为真时渲染 */}
+      {/* Render when any condition is true */}
       <When any={[isLoading, hasErrors]} fallback={<ReadyContent />}>
         <LoadingOrErrorMessage />
       </When>
 
-      {/* 所有条件都为假时渲染 */}
+      {/* Render when all conditions are false */}
       <When none={[isAdmin, isLoading]}>
         <RegularUserContent />
       </When>
     </>
   );
+}
 ```
 
 #### `<True>` / `<False>` (v1.1.6+)
 
-用于简化条件渲染的辅助组件，适合简单的布尔判断场景。
+Helper components for simple boolean conditional rendering.
 
 ```tsx
 import { True, False } from "@wwog/react";
@@ -131,24 +130,22 @@ function Example({ isActive }) {
   return (
     <>
       <True condition={isActive}>
-        <p>激活状态</p>
+        <p>Active</p>
       </True>
       <False condition={isActive}>
-        <p>未激活状态</p>
+        <p>Inactive</p>
       </False>
     </>
   );
 }
 ```
 
-- `<True condition={...}>`：当 condition 为 true 时渲染子内容。
-- `<False condition={...}>`：当 condition 为 false 时渲染子内容。
+- `<True condition={...}>`: Renders children when condition is true.
+- `<False condition={...}>`: Renders children when condition is false.
 
-#### `<Toggle>` (v1.2.0+)
+#### `<Toggle>`
 
-声明式切换组件，在预定义选项中切换值，并通过指定属性传递给子组件，支持自定义切换逻辑。
-
-> v1.2.1 Indexing is now used to fix bugs with arbitrary values
+A declarative toggle component that switches values among predefined options and passes them to child components via specified props, supporting custom toggle logic.
 
 ```tsx
 import { Toggle } from "@wwog/react";
@@ -161,16 +158,16 @@ import { Toggle } from "@wwog/react";
 />;
 ```
 
-- `options`：可切换的值数组。
-- `index`：默认:0。
-- `next`：自定义切换逻辑函数。
-- `render`：渲染函数。
+- `options`: Array of values to toggle between.
+- `index`: Initial Options index.
+- `next`: Custom toggle logic function.
+- `render`: Render Function.
 
-### 通用组件
+### Utility Components
 
 #### `<ArrayRender>`
 
-内部仅单次循环。高效渲染数组数据的工具组件，支持过滤和自定义渲染。
+Efficiently render array data, supports filtering and custom rendering.
 
 ```tsx
 import { ArrayRender } from "@wwog/react";
@@ -192,11 +189,11 @@ function UserList({ users }) {
 
 #### `<Pipe>` (v1.1.7+)
 
-声明式的数据管道处理组件，适合多步骤数据转换和链式处理。
+A declarative data pipeline component for multi-step data transformation and chaining.
 
-> 声明式数据处理，替代嵌套函数调用。
-> 提高代码可读性，逻辑清晰。
-> 适合数据清洗、格式化等场景。
+> Declarative data processing, replacing nested function calls.
+> Improves code readability and logic clarity.
+> Suitable for data cleaning, formatting, etc.
 
 ```tsx
 import { Pipe } from "@wwog/react";
@@ -216,18 +213,18 @@ function Example({ users }) {
 }
 ```
 
-- `data`：初始数据。
-- `transform`：数据转换函数数组，按顺序依次处理。
-- `render`：渲染最终结果。
-- `fallback`：结果为 null/undefined 时的兜底内容。
+- `data`: Initial data.
+- `transform`: Array of transformation functions, applied in order.
+- `render`: Render the final result.
+- `fallback`: Content to render if result is null/undefined.
 
 #### `<Scope>` (v1.1.7+)
 
-为子节点提供局部作用域，声明式定义临时变量，简化复杂渲染逻辑。
+Provides a local scope for children, declaratively defines temporary variables, and simplifies complex rendering logic.
 
-> 避免在组件外定义临时状态或计算。
-> 声明式定义局部变量，增强代码自包含性。
-> 适合表单、计算密集型渲染等场景。
+> Avoids defining temporary state or calculations outside the component.
+> Declaratively defines local variables for better self-containment.
+> Suitable for forms, computation-heavy rendering, etc.
 
 ```tsx
 import { Scope } from "@wwog/react";
@@ -244,7 +241,7 @@ function Example() {
   );
 }
 
-// 支持函数式 let
+// Function-style let is supported
 <Scope
   let={(props) => ({ total: props.items.length })}
   props={{ items: [1, 2] }}
@@ -254,14 +251,14 @@ function Example() {
 </Scope>;
 ```
 
-- `let`：对象或函数，定义作用域变量。
-- `props`：传递给 let 函数的参数。
-- `children`：作用域变量的渲染函数。
-- `fallback`：无内容时的兜底渲染。
+- `let`: Object or function defining scope variables.
+- `props`: Props passed to the let function.
+- `children`: Render function for scope variables.
+- `fallback`: Fallback content when empty.
 
 #### `<DateRender>` (v1.2.3+)
 
-一个声明式组件，用于格式化并渲染日期，简单易用且支持自定义格式化。
+A declarative component for formatting and rendering dates, simple to use with support for custom formatting.
 
 ```tsx
 import { DateRender } from "@wwog/react";
@@ -269,30 +266,30 @@ import { DateRender } from "@wwog/react";
 function Example() {
   return (
     <>
-      {/* 使用默认格式化 */}
+      {/* Using default formatting */}
       <DateRender source="2025-05-06">
-        {(formatted) => <div>日期: {formatted}</div>}
+        {(formatted) => <div>Date: {formatted}</div>}
       </DateRender>
 
-      {/* 使用自定义格式化 */}
+      {/* Using custom formatting */}
       <DateRender
         source={new Date()}
-        format={(date) => date.toLocaleDateString("zh-CN")}
+        format={(date) => date.toLocaleDateString("en-US")}
       >
-        {(formatted) => <div>日期: {formatted}</div>}
+        {(formatted) => <div>Date: {formatted}</div>}
       </DateRender>
     </>
   );
 }
 ```
 
-- `source`：要渲染的输入日期（Date 对象、ISO 字符串或时间戳）。
-- `format`：可选的格式化日期的函数，默认使用 `toLocaleString()`。
-- `children`：渲染格式化后日期的函数，接收格式化后的日期作为参数。
+- `source`: The input date to render (Date object, ISO string, or timestamp).
+- `format`: Optional function to format the date, defaults to `toLocaleString()`.
+- `children`: Function to render the formatted date, receives the formatted date as an argument.
 
 #### `<SizeBox>`
 
-创建固定尺寸的容器，用于布局调整和间距控制。
+Create a fixed-size container for layout adjustment and spacing control.
 
 > v1.1.8: Fixed SizeBox not working in 'flex' layouts, add classname props
 
@@ -303,10 +300,10 @@ function Layout() {
   return (
     <div>
       <Header />
-      {/* 创建垂直间距 */}
+      {/* Vertical spacing */}
       <SizeBox height={20} />
       <Content />
-      {/* 创建具有固定尺寸的容器 */}
+      {/* Fixed-size container */}
       <SizeBox width={200} height={150}>
         <SideContent />
       </SizeBox>
@@ -317,7 +314,7 @@ function Layout() {
 
 #### `<ClassName>` (v1.2.5+)
 
-用于将 CSS 类名分类编写的组件，内置类似`clsx`的功能，并且可以去除重复的 className。
+A component for writing className in a categorized way, with built-in functionality similar to `clsx`, and removes duplicate classNames.
 
 ```tsx
 import { ClassName } from "@wwog/react";
@@ -333,13 +330,13 @@ function Example() {
         other: "button",
       }}
     >
-      <button>点击我</button>
+      <button>Click me</button>
     </ClassName>
   );
 }
 ```
 
-还可以使用容器包装元素：
+You can also use a wrapper container element:
 
 ```tsx
 <ClassName
@@ -349,66 +346,62 @@ function Example() {
   }}
   asWrapper="span"
 >
-  内容
+  Content
 </ClassName>
 ```
 
-- `className`：分类的类名对象，支持各种状态的类名（base, hover, active, focus, disabled 等）
-- `asWrapper`：是否生成包含所有 className 的 wrapper，默认 false，传递标签名如'div'或'span'
-- `children`：子元素，通常是一个 React 元素
+- `className`: Object with categorized class names, supporting various states (base, hover, active, focus, disabled, etc.)
+- `asWrapper`: Whether to generate a wrapper containing all classNames, default is false, pass a tag name like 'div' or 'span'
+- `children`: Child elements, typically a React element
 
 ### hooks
 
-- 一些常用的 hooks 的封装
+#### useControlled
 
-#### useControlled (v1.2.0+)
-
-- 受控组件和非受控组件的切换,方便组件开发
+- Applied to states that can be controlled or uncontrolled components
 
 ### utils
 
-- 用于部分组件的内部函数,如需要也可使用
+> Internal functions used by some components, which can also be used if needed
 
 #### `formatDate`
 
-比较标准的格式化时间函数
+A relatively standard date formatting function
 
 #### `childrenLoop`
 
-可以中断的子节点遍历，让一些分支流程拥有极致性能
+Interruptible child node traversal, enabling some branch processes to have ultimate performance
 
 #### `Counter`
 
-计数器
+Incrementally class
 
-#### `cn` (v1.2.5+)
+#### `cx` (v1.2.5+)
 
-一个高效的 CSS 类名合并工具函数，类似于`clsx`或`classnames`，但能自动去除重复的类名。
+An efficient CSS class name merging utility function, similar to `clsx` or `classnames`, but automatically removes duplicate class names.
 
 ```tsx
-import { cn } from "@wwog/react";
+import { cx } from "@wwog/react";
 
 function Example({ isActive, isDisabled }) {
   return (
     <div
-      className={cn("base-class", ["array-class-1", "array-class-2"], {
+      className={cx("base-class", ["array-class-1", "array-class-2"], {
         "active-class": isActive,
         "disabled-class": isDisabled,
       })}
     >
-      内容
+      Content
     </div>
   );
 }
 ```
 
-支持多种参数类型：
+Supports various parameter types:
 
-- 字符串: `"class1 class2"`
-- 字符串数组: `["class1", "class2"]`
-- 对象: `{ "class1": true, "class2": false }`
-- 以上类型的任意组合
+- String: `"class1 class2"`
+- String array: `["class1", "class2"]`
+- Object: `{ "class1": true, "class2": false }`
+- Any combination of the above types
 
 ## License
-
-MIT
