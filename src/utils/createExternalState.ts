@@ -1,4 +1,5 @@
 import React from "react";
+import { safePromiseTry } from "./promise";
 
 /**
  * @en Callback function type for state change listeners
@@ -14,7 +15,10 @@ export type CreateStateListener<T> = (state: T) => void;
  * @param newState The new state value / 新的状态值
  * @param prevState The previous state value / 之前的状态值
  */
-export type ExternalSideEffect<T> = (newState: T, prevState: T) => void | Promise<void>;
+export type ExternalSideEffect<T> = (
+  newState: T,
+  prevState: T
+) => void | Promise<void>;
 
 /**
  * @en External state management interface
@@ -28,14 +32,14 @@ export interface ExternalState<T> {
    * @returns The current state value / 当前状态值
    */
   get: () => T;
-  
+
   /**
    * @en Set a new state value
    * @zh 设置新的状态值
    * @param newState The new state value / 新的状态值
    */
   set: (newState: T) => void;
-  
+
   /**
    * @en React Hook for using external state in components
    * @zh 在组件中使用外部状态的 React Hook
@@ -45,20 +49,20 @@ export interface ExternalState<T> {
 }
 
 /**
- * 
+ *
  * @example
  * ```tsx
  * // Create an app-level theme state
  * const themeState = createExternalState('light');
- * 
- * // Get or modify state outside components 
+ *
+ * // Get or modify state outside components
  * console.log(themeState.get()); // 'light'
  * themeState.set('dark');
- * 
+ *
  * // Use state in components
  * function ThemeConsumer() {
  *   const [theme, setTheme] = themeState.use();
- *   
+ *
  *   return (
  *     <div className={theme}>
  *       <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
@@ -81,10 +85,13 @@ export function createExternalState<T>(
   const set = (newState: T) => {
     const prevState = state;
     state = newState;
-    if (sideEffect) {
-      sideEffect(newState, prevState);
-    }
+
     listeners.forEach((listener) => listener(state));
+    if (sideEffect) {
+      safePromiseTry(sideEffect, state, prevState).catch((error) => {
+        console.error("Error in external state side effect, Please do it within side effects:", error);
+      });
+    }
   };
 
   const use = () => {

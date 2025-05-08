@@ -318,7 +318,7 @@ Categorically write styles and basic string styles, with built-in functionality 
 
 ```tsx
 import { Styles } from "@wwog/react";
-import clazz from './index.module.css'
+import clazz from "./index.module.css";
 
 function Example() {
   return (
@@ -375,22 +375,22 @@ A lightweight external state management utility that allows you to create and ma
 import { createExternalState } from "@wwog/react";
 
 // Create a global theme state
-const themeState = createExternalState('light', (newTheme, oldTheme) => {
+const themeState = createExternalState("light", (newTheme, oldTheme) => {
   console.log(`Theme changed from ${oldTheme} to ${newTheme}`);
 });
 
 // Get or modify state from anywhere
 console.log(themeState.get()); // 'light'
-themeState.set('dark');
+themeState.set("dark");
 
 // Use the state in components
 function ThemeConsumer() {
   const [theme, setTheme] = themeState.use();
-  
+
   return (
     <div className={theme}>
       Current theme: {theme}
-      <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+      <button onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
         Toggle theme
       </button>
     </div>
@@ -407,6 +407,7 @@ function ThemeConsumer() {
     - `use()`: React Hook, returns `[state, setState]` for using this state in components
 
 Use cases:
+
 - Global state management (themes, user settings, etc.)
 - Cross-component communication
 - Reactive state in services or utility classes
@@ -423,6 +424,10 @@ Interruptible child node traversal, enabling some branch processes to have ultim
 #### `Counter`
 
 Incrementally class
+
+#### `safePromiseTry` (v1.2.10+)
+
+Support `Promise.try` Use `Promise.try`, otherwise use internal implementation
 
 #### `cx` (v1.2.5+)
 

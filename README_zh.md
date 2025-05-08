@@ -429,6 +429,11 @@ function ThemeConsumer() {
 
 计数器
 
+
+#### `safePromiseTry` (v1.2.10+) 
+
+支持Promise.try使用Promise.try,否则使用内部实现
+
 #### `cx` (v1.2.5+)
 
 一个高效的 CSS 类名合并工具函数，类似于`clsx`或`classnames`，但能自动去除重复的类名。
