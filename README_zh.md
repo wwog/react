@@ -315,16 +315,17 @@ function Layout() {
 }
 ```
 
-#### `<ClassName>` (v1.2.5+)
+#### `<Styles>` (v1.2.7+)
 
-用于将 CSS 类名分类编写的组件，内置类似`clsx`的功能，并且可以去除重复的 className。
+分类编写样式和基本的string样式，内置类似 `clsx` 对类型描述对象的值进行组合，支持去除重复类名,支持嵌套。
 
 ```tsx
-import { ClassName } from "@wwog/react";
+import { Styles } from "@wwog/react";
+import clazz from './index.module.css'
 
 function Example() {
   return (
-    <ClassName
+    <Styles
       className={{
         base: "p-2 bg-white",
         hover: "hover:bg-gray-100",
@@ -333,8 +334,10 @@ function Example() {
         other: "button",
       }}
     >
-      <button>点击我</button>
-    </ClassName>
+      <Styles className={clazz.button}>
+        <button>点击我</button>
+      </Styles>
+    </Styles>
   );
 }
 ```
@@ -342,7 +345,7 @@ function Example() {
 还可以使用容器包装元素：
 
 ```tsx
-<ClassName
+<Styles
   className={{
     base: ["p-2", { "bg-red-500": isError }],
     hover: { "hover:bg-blue-500": true },
@@ -350,12 +353,12 @@ function Example() {
   asWrapper="span"
 >
   内容
-</ClassName>
+</Styles>
 ```
 
-- `className`：分类的类名对象，支持各种状态的类名（base, hover, active, focus, disabled 等）
-- `asWrapper`：是否生成包含所有 className 的 wrapper，默认 false，传递标签名如'div'或'span'
-- `children`：子元素，通常是一个 React 元素
+- `className` [string | StylesDescriptor]：类名的分类对象,对象所有的值会被合并
+- `asWrapper` [boolean | HTMLElementType]：是否生成包含所有 className 的 wrapper，默认 false，传递标签名如'div'或'span'
+- `children`：只在单一子元素生效，如果多子元素请传递asWrapper进行类型编写，避免歧义
 
 ### hooks
 

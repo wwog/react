@@ -312,16 +312,17 @@ function Layout() {
 }
 ```
 
-#### `<ClassName>` (v1.2.5+)
+#### `<Styles>` (v1.2.7+)
 
-A component for writing className in a categorized way, with built-in functionality similar to `clsx`, and removes duplicate classNames.
+Categorically write styles and basic string styles, with built-in functionality similar to clsx for combining type description object values, supporting duplicate class name removal and nesting.
 
 ```tsx
-import { ClassName } from "@wwog/react";
+import { Styles } from "@wwog/react";
+import clazz from './index.module.css'
 
 function Example() {
   return (
-    <ClassName
+    <Styles
       className={{
         base: "p-2 bg-white",
         hover: "hover:bg-gray-100",
@@ -330,16 +331,18 @@ function Example() {
         other: "button",
       }}
     >
-      <button>Click me</button>
-    </ClassName>
+      <Styles className={clazz.button}>
+        <button>Click me</button>
+      </Styles>
+    </Styles>
   );
 }
 ```
 
-You can also use a wrapper container element:
+You can also use a container wrapper element:
 
 ```tsx
-<ClassName
+<Styles
   className={{
     base: ["p-2", { "bg-red-500": isError }],
     hover: { "hover:bg-blue-500": true },
@@ -347,12 +350,12 @@ You can also use a wrapper container element:
   asWrapper="span"
 >
   Content
-</ClassName>
+</Styles>
 ```
 
-- `className`: Object with categorized class names, supporting various states (base, hover, active, focus, disabled, etc.)
-- `asWrapper`: Whether to generate a wrapper containing all classNames, default is false, pass a tag name like 'div' or 'span'
-- `children`: Child elements, typically a React element
+- `className` [string | StylesDescriptor]: Category object for class names, all values in the object will be merged
+- `asWrapper` [boolean | HTMLElementType]: Whether to generate a wrapper containing all classNames, default is false, pass tag name like 'div' or 'span'
+- `children` : Only works with a single child element; if there are multiple child elements, please pass asWrapper to write types and avoid ambiguity
 
 ### hooks
 
