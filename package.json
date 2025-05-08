@@ -18,9 +18,10 @@
     "build": "unbuild",
     "format": "biome format --write src",
     "check": "biome check --write src",
-    "test:component": "vitest",
+    "test:unit": "vitest run",
     "test:types": "tsc --noEmit --skipLibCheck",
-    "all-suites": "pnpm run format && pnpm run check && pnpm run test:types && pnpm run test"
+    "all-suites": "pnpm run format && pnpm run check && pnpm run test:types && pnpm run test:unit",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
