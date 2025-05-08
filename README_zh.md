@@ -372,6 +372,51 @@ function Example() {
 
 - 用于部分组件的内部函数,如需要也可使用
 
+#### `createExternalState` (v1.2.9+)
+
+一个轻量级的外部状态管理工具，让你可以在 React 组件树外部创建和管理状态，同时保持与组件的完美集成。
+
+```tsx
+import { createExternalState } from "@wwog/react";
+
+// 创建一个全局主题状态
+const themeState = createExternalState('light', (newTheme, oldTheme) => {
+  console.log(`主题从 ${oldTheme} 变更为 ${newTheme}`);
+});
+
+// 在任何位置获取或修改状态
+console.log(themeState.get()); // 'light'
+themeState.set('dark');
+
+// 在组件中使用状态
+function ThemeConsumer() {
+  const [theme, setTheme] = themeState.use();
+  
+  return (
+    <div className={theme}>
+      当前主题: {theme}
+      <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+        切换主题
+      </button>
+    </div>
+  );
+}
+```
+
+- `createExternalState<T>(initialState, sideEffect?)`: 创建一个可在组件外部访问的状态
+  - `initialState`: 初始状态值
+  - `sideEffect`: 可选的副作用函数，在状态更新时调用
+  - 返回包含以下方法的对象:
+    - `get()`: 获取当前状态值
+    - `set(newState)`: 更新状态值
+    - `use()`: React Hook，返回 `[state, setState]`，用于在组件中使用此状态
+
+适用场景:
+- 全局状态管理（主题、用户设置等）
+- 跨组件通信
+- 服务或工具类中的响应式状态
+- 与非 React 代码共享状态
+
 #### `formatDate`
 
 比较标准的格式化时间函数

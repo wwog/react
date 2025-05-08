@@ -367,6 +367,51 @@ You can also use a container wrapper element:
 
 > Internal functions used by some components, which can also be used if needed
 
+#### `createExternalState` (v1.2.9+)
+
+A lightweight external state management utility that allows you to create and manage state outside the React component tree while maintaining perfect integration with components.
+
+```tsx
+import { createExternalState } from "@wwog/react";
+
+// Create a global theme state
+const themeState = createExternalState('light', (newTheme, oldTheme) => {
+  console.log(`Theme changed from ${oldTheme} to ${newTheme}`);
+});
+
+// Get or modify state from anywhere
+console.log(themeState.get()); // 'light'
+themeState.set('dark');
+
+// Use the state in components
+function ThemeConsumer() {
+  const [theme, setTheme] = themeState.use();
+  
+  return (
+    <div className={theme}>
+      Current theme: {theme}
+      <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+        Toggle theme
+      </button>
+    </div>
+  );
+}
+```
+
+- `createExternalState<T>(initialState, sideEffect?)`: Creates a state accessible outside components
+  - `initialState`: Initial state value
+  - `sideEffect`: Optional side effect function, called on state updates
+  - Returns an object with methods:
+    - `get()`: Get the current state value
+    - `set(newState)`: Update the state value
+    - `use()`: React Hook, returns `[state, setState]` for using this state in components
+
+Use cases:
+- Global state management (themes, user settings, etc.)
+- Cross-component communication
+- Reactive state in services or utility classes
+- Sharing state with non-React code
+
 #### `formatDate`
 
 A relatively standard date formatting function
