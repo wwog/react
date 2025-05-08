@@ -344,7 +344,7 @@ You can also use a container wrapper element:
 ```tsx
 <Styles
   className={{
-    base: ["p-2", { "bg-red-500": isError }],
+    base: ["p-2"],
     hover: { "hover:bg-blue-500": true },
   }}
   asWrapper="span"
