@@ -18,7 +18,7 @@ export type CreateStateListener<T> = (state: T) => void;
 export type ExternalSideEffect<T> = (
   newState: T,
   prevState: T
-) => void | Promise<void>;
+) => any | Promise<any>;
 
 /**
  * @en External state management interface
@@ -46,6 +46,10 @@ export interface ExternalState<T> {
    * @returns Array containing current state and update function, similar to useState / 包含当前状态和更新函数的数组，类似于 useState
    */
   use: () => [T, (newState: T) => void];
+}
+
+export interface ExternalWithKernel<T> extends ExternalState<T> {
+  __listeners: CreateStateListener<T>[];
 }
 
 /**
@@ -89,7 +93,10 @@ export function createExternalState<T>(
     listeners.forEach((listener) => listener(state));
     if (sideEffect) {
       safePromiseTry(sideEffect, state, prevState).catch((error) => {
-        console.error("Error in external state side effect, Please do it within side effects:", error);
+        console.error(
+          "Error in external state side effect, Please do it within side effects:",
+          error
+        );
       });
     }
   };
@@ -110,5 +117,6 @@ export function createExternalState<T>(
     return [localState, set] as [T, (newState: T) => void];
   };
 
-  return { get, set, use };
+  //@ts-expect-error ignore
+  return { get, set, use, __listeners: listeners };
 }

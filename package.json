@@ -1,6 +1,6 @@
 {
   "name": "@wwog/react",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "description": "A practical React component library providing declarative flow control and common UI utility components to make your React code more concise and readable.",
   "keywords": [
     "react",
@@ -24,7 +24,7 @@
     "build": "unbuild",
     "format": "biome format --write src",
     "check": "biome check --write src",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --browser.headless",
     "test:types": "tsc --noEmit --skipLibCheck",
     "all-suites": "pnpm run format && pnpm run check && pnpm run test:types && pnpm run test:unit",
     "test:watch": "vitest"

@@ -44,7 +44,7 @@ importers:
         version: 3.5.0(typescript@5.8.3)
       vitest:
         specifier: ^3.1.3
-        version: 3.1.3(@vitest/browser@3.1.3)(jiti@2.4.2)
+        version: 3.1.3(@vitest/browser@3.1.3)(@vitest/ui@3.1.3)(jiti@2.4.2)
       vitest-browser-react:
         specifier: ^0.1.1
         version: 0.1.1(@types/react-dom@19.1.3(@types/react@19.1.3))(@types/react@19.1.3)(@vitest/browser@3.1.3)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(vitest@3.1.3)
@@ -631,6 +631,11 @@ packages:
   '@vitest/spy@3.1.3':
     resolution: {integrity: sha512-x6w+ctOEmEXdWaa6TO4ilb7l9DxPR5bwEb6hILKuxfU1NqWT2mpJD9NJN7t3OTfxmVlOMrvtoFJGdgyzZ605lQ==}
 
+  '@vitest/ui@3.1.3':
+    resolution: {integrity: sha512-IipSzX+8DptUdXN/GWq3hq5z18MwnpphYdOMm0WndkRGYELzfq7NDP8dMpZT7JGW1uXFrIGxOW2D0Xi++ulByg==}
+    peerDependencies:
+      vitest: 3.1.3
+
   '@vitest/utils@3.1.3':
     resolution: {integrity: sha512-2Ltrpht4OmHO9+c/nmHtF09HWiyWdworqnHIwjfvDyWjuwKbdkcS9AnhsDn+8E2RM4x++foD1/tNuLPVvWG1Rg==}
 
@@ -886,8 +891,14 @@ packages:
       picomatch:
         optional: true
 
+  fflate@0.8.2:
+    resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
+
   fix-dts-default-cjs-exports@1.0.1:
     resolution: {integrity: sha512-pVIECanWFC61Hzl2+oOCtoJ3F17kglZC/6N94eRWycFgBH35hHx0Li604ZIzhseh97mf2p0cv7vVrOZGoqhlEg==}
+
+  flatted@3.3.3:
+    resolution: {integrity: sha512-GX+ysw4PBCz0PzosHDepZGANEuFCMLrnRTiEy9McGjmkCQYwRq4A/X786G/fjM/+OjsWSU1ZrY5qyARZmO/uwg==}
 
   foreground-child@3.3.1:
     resolution: {integrity: sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==}
@@ -2056,7 +2067,7 @@ snapshots:
       magic-string: 0.30.17
       sirv: 3.0.1
       tinyrainbow: 2.0.0
-      vitest: 3.1.3(@vitest/browser@3.1.3)(jiti@2.4.2)
+      vitest: 3.1.3(@vitest/browser@3.1.3)(@vitest/ui@3.1.3)(jiti@2.4.2)
       ws: 8.18.2
     optionalDependencies:
       playwright: 1.52.0
@@ -2080,7 +2091,7 @@ snapshots:
       std-env: 3.9.0
       test-exclude: 7.0.1
       tinyrainbow: 2.0.0
-      vitest: 3.1.3(@vitest/browser@3.1.3)(jiti@2.4.2)
+      vitest: 3.1.3(@vitest/browser@3.1.3)(@vitest/ui@3.1.3)(jiti@2.4.2)
     optionalDependencies:
       '@vitest/browser': 3.1.3(playwright@1.52.0)(vite@6.3.5(jiti@2.4.2))(vitest@3.1.3)
     transitivePeerDependencies:
@@ -2119,6 +2130,18 @@ snapshots:
   '@vitest/spy@3.1.3':
     dependencies:
       tinyspy: 3.0.2
+
+  '@vitest/ui@3.1.3(vitest@3.1.3)':
+    dependencies:
+      '@vitest/utils': 3.1.3
+      fflate: 0.8.2
+      flatted: 3.3.3
+      pathe: 2.0.3
+      sirv: 3.0.1
+      tinyglobby: 0.2.13
+      tinyrainbow: 2.0.0
+      vitest: 3.1.3(@vitest/browser@3.1.3)(@vitest/ui@3.1.3)(jiti@2.4.2)
+    optional: true
 
   '@vitest/utils@3.1.3':
     dependencies:
@@ -2391,11 +2414,17 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.2
 
+  fflate@0.8.2:
+    optional: true
+
   fix-dts-default-cjs-exports@1.0.1:
     dependencies:
       magic-string: 0.30.17
       mlly: 1.7.4
       rollup: 4.40.2
+
+  flatted@3.3.3:
+    optional: true
 
   foreground-child@3.3.1:
     dependencies:
@@ -3019,12 +3048,12 @@ snapshots:
       '@vitest/browser': 3.1.3(playwright@1.52.0)(vite@6.3.5(jiti@2.4.2))(vitest@3.1.3)
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-      vitest: 3.1.3(@vitest/browser@3.1.3)(jiti@2.4.2)
+      vitest: 3.1.3(@vitest/browser@3.1.3)(@vitest/ui@3.1.3)(jiti@2.4.2)
     optionalDependencies:
       '@types/react': 19.1.3
       '@types/react-dom': 19.1.3(@types/react@19.1.3)
 
-  vitest@3.1.3(@vitest/browser@3.1.3)(jiti@2.4.2):
+  vitest@3.1.3(@vitest/browser@3.1.3)(@vitest/ui@3.1.3)(jiti@2.4.2):
     dependencies:
       '@vitest/expect': 3.1.3
       '@vitest/mocker': 3.1.3(vite@6.3.5(jiti@2.4.2))
@@ -3049,6 +3078,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@vitest/browser': 3.1.3(playwright@1.52.0)(vite@6.3.5(jiti@2.4.2))(vitest@3.1.3)
+      '@vitest/ui': 3.1.3(vitest@3.1.3)
     transitivePeerDependencies:
       - jiti
       - less
