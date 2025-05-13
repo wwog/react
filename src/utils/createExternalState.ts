@@ -78,17 +78,21 @@ export interface ExternalWithKernel<T> extends ExternalState<T> {
  * ```
  */
 export function createExternalState<T>(
-  initialState: T,
+  initialState: T | (() => T),
   sideEffect?: ExternalSideEffect<T>
 ): ExternalState<T> {
-  let state: T = initialState;
+  let state: T =
+    typeof initialState === "function"
+      ? (initialState as () => T)()
+      : initialState;
+
   const listeners: CreateStateListener<T>[] = [];
 
   const get = () => state;
 
-  const set = (newState: T) => {
+  const set = (newState: T | (() => T)) => {
     const prevState = state;
-    state = newState;
+    state = typeof newState === "function" ? (newState as () => T)() : newState;
 
     listeners.forEach((listener) => listener(state));
     if (sideEffect) {
