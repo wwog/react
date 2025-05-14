@@ -46,6 +46,12 @@ export interface ExternalState<T> {
    * @returns Array containing current state and update function, similar to useState / 包含当前状态和更新函数的数组，类似于 useState
    */
   use: () => [T, (newState: T) => void];
+
+  /**
+   * @zh use的变体，只获取value.
+   * @en A variant of use that only gets the value.
+   */
+  useGetter: () => T;
 }
 
 export interface ExternalWithKernel<T> extends ExternalState<T> {
@@ -121,6 +127,11 @@ export function createExternalState<T>(
     return [localState, set] as [T, (newState: T) => void];
   };
 
+  const useGetter = () => {
+    const [value] = use();
+    return value;
+  };
+
   //@ts-expect-error ignore
-  return { get, set, use, __listeners: listeners };
+  return { get, set, use, useGetter, __listeners: listeners };
 }

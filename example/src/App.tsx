@@ -1,26 +1,20 @@
-import { FC, ReactNode } from "react";
-import { Styles } from "../../src";
-interface ComponentProps {
-  children?: ReactNode;
-}
-export const Component: FC<ComponentProps> = (props) => {
-  return <div>{props.children}</div>;
+import { FC } from "react";
+import { createExternalState } from "../../src";
+
+const dateState = createExternalState(Date.now());
+
+export const Component: FC = () => {
+  const date = dateState.useGetter();
+  return <div>{date}</div>;
 };
 
 function App() {
+  const [date, setDate] = dateState.use();
   return (
     <div>
-      <Styles
-        className={{
-          base: "p-2 bg-red",
-          active: "bg-blue-500",
-          hover: "bg-green-500",
-        }}
-      >
-        <Styles className={{ base: "leading" }}>
-          <div>123</div>
-        </Styles>
-      </Styles>
+      use:{date}
+      <button onClick={() => setDate(Date.now())}>getNow</button>
+      <Component />
     </div>
   );
 }

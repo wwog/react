@@ -372,7 +372,7 @@ function Example() {
 
 - 用于部分组件的内部函数,如需要也可使用
 
-#### `createExternalState` (v1.2.9+)
+#### `createExternalState` (v1.2.9+, v1.2.13版本新增useGetter)
 
 一个轻量级的外部状态管理工具，让你可以在 React 组件树外部创建和管理状态，同时保持与组件的完美集成。
 
@@ -401,6 +401,13 @@ function ThemeConsumer() {
     </div>
   );
 }
+
+// 仅读取状态 (v1.2.13+)
+function ReadOnlyThemeConsumer() {
+  const theme = themeState.useGetter();
+  
+  return <div>当前主题是: {theme}</div>;
+}
 ```
 
 - `createExternalState<T>(initialState, sideEffect?)`: 创建一个可在组件外部访问的状态
@@ -410,6 +417,7 @@ function ThemeConsumer() {
     - `get()`: 获取当前状态值
     - `set(newState)`: 更新状态值
     - `use()`: React Hook，返回 `[state, setState]`，用于在组件中使用此状态
+    - `useGetter()`: React Hook，仅返回状态值，当你只需要读取状态时非常有用
 
 适用场景:
 - 全局状态管理（主题、用户设置等）

@@ -367,7 +367,7 @@ You can also use a container wrapper element:
 
 > Internal functions used by some components, which can also be used if needed
 
-#### `createExternalState` (v1.2.9+)
+#### `createExternalState` (v1.2.9+, useGetter added in v1.2.13)
 
 A lightweight external state management utility that allows you to create and manage state outside the React component tree while maintaining perfect integration with components.
 
@@ -396,6 +396,13 @@ function ThemeConsumer() {
     </div>
   );
 }
+
+// For read-only access (v1.2.13+)
+function ReadOnlyThemeConsumer() {
+  const theme = themeState.useGetter();
+
+  return <div>Current theme is: {theme}</div>;
+}
 ```
 
 - `createExternalState<T>(initialState, sideEffect?)`: Creates a state accessible outside components
@@ -405,6 +412,7 @@ function ThemeConsumer() {
     - `get()`: Get the current state value
     - `set(newState)`: Update the state value
     - `use()`: React Hook, returns `[state, setState]` for using this state in components
+    - `useGetter()`: React Hook that only returns the state value, useful when you only need to read the state
 
 Use cases:
 
