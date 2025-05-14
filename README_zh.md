@@ -444,7 +444,7 @@ import { cx } from "@wwog/react";
 function Example({ isActive, isDisabled }) {
   return (
     <div
-      className={cn("base-class", ["array-class-1", "array-class-2"], {
+      className={cx("base-class", ["array-class-1", "array-class-2"], {
         "active-class": isActive,
         "disabled-class": isDisabled,
       })}
