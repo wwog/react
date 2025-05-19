@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { FC, useMemo } from "react";
 import { True } from "../ProcessControl/If";
 
 export interface ClampProps {
@@ -62,51 +62,57 @@ export const Clamp: FC<ClampProps> = (props) => {
     ellipsisContent = <span>&hellip;</span>,
     wrapperStyle,
   } = props;
+  const isValidText = useMemo(() => {
+    if (text === undefined || text === null || text === "") return false;
+    return true;
+  }, [text]);
   return (
-    <div
-      style={{
-        display: "flex",
-        overflow: "hidden",
-        position: "relative",
-        background: bgColor,
-        ...wrapperStyle,
-      }}
-    >
+    <True condition={isValidText}>
       <div
         style={{
-          lineHeight: `${lineHeight}px`,
-          maxHeight: `${lineHeight * maxLine}px`,
+          display: "flex",
           overflow: "hidden",
-          wordBreak: "break-all"
+          position: "relative",
+          background: bgColor,
+          ...wrapperStyle,
         }}
       >
         <div
           style={{
-            float: "right",
-            height: `calc(100% - ${extraHeight - 2}px)`,
-          }}
-        ></div>
-        <div
-          style={{
-            float: "right",
-            clear: "both",
-            height: extraHeight,
+            lineHeight: `${lineHeight}px`,
+            maxHeight: `${lineHeight * maxLine}px`,
+            overflow: "hidden",
+            wordBreak: "break-all",
           }}
         >
-          <True condition={ellipsis}>{ellipsisContent}</True>
-          {extraContent}
+          <div
+            style={{
+              float: "right",
+              height: `calc(100% - ${extraHeight - 2}px)`,
+            }}
+          ></div>
+          <div
+            style={{
+              float: "right",
+              clear: "both",
+              height: extraHeight,
+            }}
+          >
+            <True condition={ellipsis}>{ellipsisContent}</True>
+            {extraContent}
+          </div>
+          {text}
+          <div
+            style={{
+              display: "inline-block",
+              width: "100%",
+              height: "100%",
+              position: "absolute",
+              background: bgColor,
+            }}
+          ></div>
         </div>
-        {text}
-        <div
-          style={{
-            display: "inline-block",
-            width: "100%",
-            height: "100%",
-            position: "absolute",
-            background: bgColor,
-          }}
-        ></div>
       </div>
-    </div>
+    </True>
   );
 };
