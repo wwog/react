@@ -190,6 +190,37 @@ function UserList({ users }) {
 }
 ```
 
+#### `<Clamp>` (v1.2.14+)
+
+用于固定行数，显示省略号且显示额外内容的组件。兼容性非常好，没有用到 webkit-box 和 js。
+
+```tsx
+import { Clamp } from "@wwog/react";
+
+function Example() {
+  return (
+    <Clamp
+      text="这是一段很长的文本，会被截断并显示省略号..."
+      maxLine={2}
+      lineHeight={20}
+      ellipsis={true}
+      extraContent={<button>查看更多</button>}
+      bgColor="#fff"
+    />
+  );
+}
+```
+
+- `text`: 要显示的文本内容。
+- `maxLine`: 最大行数，默认为 1。
+- `lineHeight`: 行高（像素），默认为 20。
+- `ellipsis`: 是否显示省略号，默认为 false。
+- `ellipsisContent`: 自定义省略号内容，默认为 `<span>...</span>`。
+- `extraContent`: 在文本末尾显示的额外内容，如"查看更多"按钮。
+- `extraHeight`: 额外内容的高度，默认为 20。
+- `bgColor`: 背景颜色，默认为白色 ('#fff')。
+- `wrapperStyle`: 包装器的样式。
+
 #### `<Pipe>` (v1.1.7+)
 
 声明式的数据管道处理组件，适合多步骤数据转换和链式处理。
