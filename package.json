@@ -1,6 +1,6 @@
 {
   "name": "@wwog/react",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "description": "A practical React component library providing declarative flow control and common UI utility components to make your React code more concise and readable.",
   "keywords": [
     "react",

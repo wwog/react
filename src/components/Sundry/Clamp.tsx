@@ -59,7 +59,7 @@ export const Clamp: FC<ClampProps> = (props) => {
     extraContent,
     bgColor = "#fff",
     ellipsis = false,
-    ellipsisContent = <span>...</span>,
+    ellipsisContent = <span>&hellip;</span>,
     wrapperStyle,
   } = props;
   return (
@@ -73,11 +73,11 @@ export const Clamp: FC<ClampProps> = (props) => {
       }}
     >
       <div
-        className="text"
         style={{
           lineHeight: `${lineHeight}px`,
           maxHeight: `${lineHeight * maxLine}px`,
           overflow: "hidden",
+          wordBreak: "break-all"
         }}
       >
         <div
