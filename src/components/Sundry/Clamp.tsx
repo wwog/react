@@ -1,11 +1,7 @@
-import React, { FC, useMemo } from "react";
+import React, { FC, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { True } from "../ProcessControl/If";
 
 export interface ClampProps {
-  /**
-   * @default 20
-   */
-  lineHeight?: number;
   /**
    * @description 最大行数
    * @description_en maximum number of lines
@@ -52,65 +48,84 @@ export interface ClampProps {
  */
 export const Clamp: FC<ClampProps> = (props) => {
   const {
-    lineHeight = 20,
     maxLine = 1,
     text,
-    extraHeight = 20,
+    extraHeight = 22,
     extraContent,
-    bgColor = "#fff",
-    ellipsis = false,
-    ellipsisContent = <span>&hellip;</span>,
     wrapperStyle,
   } = props;
+  const fullTextRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [showExtra, setShowExtra] = useState(false);
   const isValidText = useMemo(() => {
     if (text === undefined || text === null || text === "") return false;
     return true;
   }, [text]);
+
+  useLayoutEffect(() => {
+    if (!wrapperRef.current) {
+      return;
+    }
+    const measureWrapper = document.createElement("div");
+    measureWrapper.textContent = text;
+    measureWrapper.style.position = "absolute";
+    measureWrapper.style.width = "100%";
+    measureWrapper.style.wordBreak = "break-all";
+    measureWrapper.style.top = "100%";
+
+    wrapperRef.current.appendChild(measureWrapper);
+    const range = document.createRange();
+    range.setStart(measureWrapper.firstChild!, 0);
+    range.setEnd(measureWrapper.firstChild!, text.length);
+    const rects = range.getClientRects();
+    if (rects.length > maxLine) {
+      setShowExtra(true);
+    } else {
+      setShowExtra(false);
+    }
+
+    wrapperRef.current.removeChild(measureWrapper);
+  }, [maxLine, text]);
   return (
     <True condition={isValidText}>
       <div
+        ref={wrapperRef}
         style={{
-          display: "flex",
           overflow: "hidden",
           position: "relative",
-          background: bgColor,
+          width: "100%",
+          display: "flex",
           ...wrapperStyle,
         }}
       >
         <div
           style={{
-            lineHeight: `${lineHeight}px`,
-            maxHeight: `${lineHeight * maxLine}px`,
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: maxLine,
             overflow: "hidden",
             wordBreak: "break-all",
           }}
         >
-          <div
-            style={{
-              float: "right",
-              height: `calc(100% - ${extraHeight - 2}px)`,
-            }}
-          ></div>
-          <div
-            style={{
-              float: "right",
-              clear: "both",
-              height: extraHeight,
-            }}
-          >
-            <True condition={ellipsis}>{ellipsisContent}</True>
-            {extraContent}
-          </div>
+          <True condition={showExtra}>
+            <div
+              style={{
+                float: "right",
+                height: "100%",
+                marginBottom: -extraHeight,
+              }}
+            ></div>
+            <div
+              style={{
+                float: "right",
+                clear: "both",
+                height: extraHeight,
+              }}
+            >
+              {extraContent}
+            </div>
+          </True>
           {text}
-          <div
-            style={{
-              display: "inline-block",
-              width: "100%",
-              height: "100%",
-              position: "absolute",
-              background: bgColor,
-            }}
-          ></div>
         </div>
       </div>
     </True>

@@ -20,8 +20,8 @@ function App() {
         }}
       >
         <Clamp
-          maxLine={2}
-          text="一个元素浮动被移出正常的文档流，然后向左或者向右平移，一直平移直到碰到了所处的容器的边框，或者碰到另外一个浮动的元素"
+          maxLine={1}
+          text="或者碰到另外1231232133311"
           extraHeight={22}
           ellipsis
           extraContent={
@@ -40,6 +40,7 @@ function App() {
           }
         />
       </div>
+      
     </div>
   );
 }
