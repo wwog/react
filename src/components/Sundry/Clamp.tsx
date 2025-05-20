@@ -16,27 +16,10 @@ export interface ClampProps {
    */
   extraHeight?: number;
   /**
-   * @description 是否显示省略号
-   * @description_en whether to display ellipsis
-   */
-  ellipsis?: boolean;
-  /**
-   * @description 替换省略号内容
-   * @description_en replace ellipsis content
-   * @default '<span>...</span>'
-   */
-  ellipsisContent?: React.ReactNode;
-  /**
    * @description 显示的文本
    * @description_en text to be displayed
    */
   text: string;
-  /**
-   * @description 背景颜色,请不要使用`wrapperStyle`覆盖此设置，因纯兼容性的css方式实现。默认白色
-   * @description_en background color, please do not use `wrapperStyle` to override this setting, because it is implemented in a pure compatible css way. Default white
-   * @default '#fff'
-   */
-  bgColor?: string;
   wrapperStyle?: React.CSSProperties;
 }
 
@@ -54,7 +37,6 @@ export const Clamp: FC<ClampProps> = (props) => {
     extraContent,
     wrapperStyle,
   } = props;
-  const fullTextRef = useRef<HTMLDivElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [showExtra, setShowExtra] = useState(false);
   const isValidText = useMemo(() => {

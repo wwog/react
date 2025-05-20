@@ -199,10 +199,7 @@ function Example() {
     <Clamp
       text="This is a long text that will be truncated with ellipsis..."
       maxLine={2}
-      lineHeight={20}
-      ellipsis={true}
       extraContent={<button>See more</button>}
-      bgColor="#fff"
     />
   );
 }
@@ -210,12 +207,8 @@ function Example() {
 
 - `text`: The text content to be displayed.
 - `maxLine`: Maximum number of lines, defaults to 1.
-- `lineHeight`: Line height in pixels, defaults to 20.
-- `ellipsis`: Whether to display ellipsis, defaults to false.
-- `ellipsisContent`: Custom ellipsis content, defaults to `<span>...</span>`.
 - `extraContent`: Extra content to display at the end of the text, such as a "See more" button.
 - `extraHeight`: Height of the extra content, defaults to 20.
-- `bgColor`: Background color, defaults to white ('#fff').
 - `wrapperStyle`: Style for the wrapper container.
 
 #### `<Pipe>` (v1.1.7+)

@@ -213,12 +213,8 @@ function Example() {
 
 - `text`: 要显示的文本内容。
 - `maxLine`: 最大行数，默认为 1。
-- `lineHeight`: 行高（像素），默认为 20。
-- `ellipsis`: 是否显示省略号，默认为 false。
-- `ellipsisContent`: 自定义省略号内容，默认为 `<span>...</span>`。
 - `extraContent`: 在文本末尾显示的额外内容，如"查看更多"按钮。
 - `extraHeight`: 额外内容的高度，默认为 20。
-- `bgColor`: 背景颜色，默认为白色 ('#fff')。
 - `wrapperStyle`: 包装器的样式。
 
 #### `<Pipe>` (v1.1.7+)
