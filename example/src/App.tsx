@@ -21,9 +21,8 @@ function App() {
       >
         <Clamp
           maxLine={1}
-          text="或者碰到另外1231232133311"
+          text="或者"
           extraHeight={22}
-          ellipsis
           extraContent={
             <span
               style={{

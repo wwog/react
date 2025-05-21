@@ -44,37 +44,42 @@ export const Clamp: FC<ClampProps> = (props) => {
     return true;
   }, [text]);
 
-  useLayoutEffect(() => {
+  const checkTextOverflow = () => {
     if (!wrapperRef.current) {
       return;
     }
     const measureWrapper = document.createElement("div");
     measureWrapper.textContent = text;
-    measureWrapper.style.position = "absolute";
-    measureWrapper.style.width = "100%";
+    const wrapperStyle = getComputedStyle(wrapperRef.current);
+    measureWrapper.style.width = wrapperStyle.width;
+    measureWrapper.style.fontSize = wrapperStyle.fontSize;
+    measureWrapper.style.lineHeight = wrapperStyle.lineHeight;
     measureWrapper.style.wordBreak = "break-all";
-    measureWrapper.style.top = "100%";
+    measureWrapper.style.visibility = "hidden";
 
-    wrapperRef.current.appendChild(measureWrapper);
-    const range = document.createRange();
-    range.setStart(measureWrapper.firstChild!, 0);
-    range.setEnd(measureWrapper.firstChild!, text.length);
-    const rects = range.getClientRects();
-    if (rects.length > maxLine) {
-      setShowExtra(true);
-    } else {
-      setShowExtra(false);
+    document.body.appendChild(measureWrapper);
+
+    const lineHeight =
+      parseInt(getComputedStyle(measureWrapper).lineHeight) || 20;
+    const height = measureWrapper.offsetHeight;
+    const lines = Math.round(height / lineHeight);
+
+    document.body.removeChild(measureWrapper);
+
+    setShowExtra(lines > maxLine);
+  };
+
+  useLayoutEffect(() => {
+    if (isValidText) {
+      checkTextOverflow();
     }
-
-    wrapperRef.current.removeChild(measureWrapper);
-  }, [maxLine, text]);
+  }, [maxLine, text, isValidText]);
   return (
     <True condition={isValidText}>
       <div
         ref={wrapperRef}
         style={{
           overflow: "hidden",
-          position: "relative",
           width: "100%",
           display: "flex",
           ...wrapperStyle,
