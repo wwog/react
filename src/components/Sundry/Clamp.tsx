@@ -50,13 +50,21 @@ export const Clamp: FC<ClampProps> = (props) => {
     }
     const measureWrapper = document.createElement("div");
     measureWrapper.textContent = text;
-    const wrapperStyle = getComputedStyle(wrapperRef.current);
-    measureWrapper.style.width = wrapperStyle.width;
-    measureWrapper.style.fontSize = wrapperStyle.fontSize;
-    measureWrapper.style.lineHeight = wrapperStyle.lineHeight;
-    measureWrapper.style.wordBreak = "break-all";
+    const _wrapperStyle = getComputedStyle(wrapperRef.current);
+    measureWrapper.style.width = _wrapperStyle.width;
+    measureWrapper.style.fontSize = _wrapperStyle.fontSize;
+    measureWrapper.style.lineHeight = _wrapperStyle.lineHeight;
+    measureWrapper.style.wordBreak = _wrapperStyle.wordBreak;
     measureWrapper.style.visibility = "hidden";
-
+    //由于允许修改样式，会出现很多问题，很多问题影响了测量元素与实际渲染不一致。
+    if (wrapperStyle) {
+      const wrapperStyleKey = Object.keys(wrapperStyle).map((key) => {
+        return key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+      });
+      for (const key of wrapperStyleKey) {
+        measureWrapper.style[key as any] = _wrapperStyle[key as any];
+      }
+    }
     document.body.appendChild(measureWrapper);
 
     const lineHeight =
