@@ -123,7 +123,9 @@ describe("createExternalState", () => {
   it("测试副作用函数", () => {
     const mockSideEffect = vi.fn((...args) => void 0);
     const initialState: string = "initial";
-    const state = createExternalState(initialState, mockSideEffect);
+    const state = createExternalState(initialState, {
+      sideEffect: mockSideEffect,
+    });
     state.set("updated");
     expect(mockSideEffect).toHaveBeenCalledTimes(1);
     expect(mockSideEffect).toHaveBeenCalledWith("updated", initialState);
@@ -135,7 +137,9 @@ describe("createExternalState", () => {
   it("测试异步副作用函数", async () => {
     const mockAsyncSideEffect = vi.fn().mockResolvedValue(undefined);
     const initialState: string = "initial";
-    const state = createExternalState(initialState, mockAsyncSideEffect);
+    const state = createExternalState(initialState, {
+      sideEffect: mockAsyncSideEffect,
+    });
 
     state.set("updated");
     expect(mockAsyncSideEffect).toHaveBeenCalledTimes(1);
@@ -180,5 +184,38 @@ describe("createExternalState", () => {
     expect(nameLocator.element().textContent).toBe("王五");
     expect(ageLocator.element().textContent).toBe("35");
     expect(state.get()).toEqual({ name: "王五", age: 35 });
+  });
+
+  it("测试transform转换功能", async () => {
+    const state = createExternalState("hello", {
+      transform: {
+        get: (str) => str.toUpperCase(),
+        set: (str) => str.toLowerCase(),
+      },
+    });
+
+    expect(state.get()).toBe("HELLO");
+
+    state.set("WORLD");
+    expect(state.get()).toBe("WORLD");
+
+    function TestComponent() {
+      const [value, setValue] = state.use();
+      return (
+        <div>
+          <span data-testid="value">{value}</span>
+          <button data-testid="update" onClick={() => setValue("TEST")}>
+            Update
+          </button>
+        </div>
+      );
+    }
+
+    const { getByTestId } = render(<TestComponent />);
+    expect(getByTestId("value").element().textContent).toBe("WORLD");
+
+    await getByTestId("update").click();
+    expect(getByTestId("value").element().textContent).toBe("TEST");
+    expect(state.get()).toBe("TEST");
   });
 });

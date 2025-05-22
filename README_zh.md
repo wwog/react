@@ -344,11 +344,11 @@ function Layout() {
 
 #### `<Styles>` (v1.2.7+)
 
-分类编写样式和基本的string样式，内置类似 `clsx` 对类型描述对象的值进行组合，支持去除重复类名,支持嵌套。
+分类编写样式和基本的 string 样式，内置类似 `clsx` 对类型描述对象的值进行组合，支持去除重复类名,支持嵌套。
 
 ```tsx
 import { Styles } from "@wwog/react";
-import clazz from './index.module.css'
+import clazz from "./index.module.css";
 
 function Example() {
   return (
@@ -385,7 +385,7 @@ function Example() {
 
 - `className` [string | StylesDescriptor]：类名的分类对象,对象所有的值会被合并
 - `asWrapper` [boolean | HTMLElementType]：是否生成包含所有 className 的 wrapper，默认 false，传递标签名如'div'或'span'
-- `children`：只在单一子元素生效，如果多子元素请传递asWrapper进行类型编写，避免歧义
+- `children`：只在单一子元素生效，如果多子元素请传递 asWrapper 进行类型编写，避免歧义
 
 ### hooks
 
@@ -399,30 +399,35 @@ function Example() {
 
 - 用于部分组件的内部函数,如需要也可使用
 
-#### `createExternalState` (v1.2.9+, v1.2.13版本新增useGetter)
+#### `createExternalState` (v1.2.9+)
 
 一个轻量级的外部状态管理工具，让你可以在 React 组件树外部创建和管理状态，同时保持与组件的完美集成。
+
+> v1.2.21: 重构 API，将 sideEffect 移至 options 对象中，增强 transform 接口支持
+> v1.2.13: 新增 useGetter
 
 ```tsx
 import { createExternalState } from "@wwog/react";
 
 // 创建一个全局主题状态
-const themeState = createExternalState('light', (newTheme, oldTheme) => {
-  console.log(`主题从 ${oldTheme} 变更为 ${newTheme}`);
+const themeState = createExternalState("light", options:{
+  sideEffect:(newTheme, oldTheme) => {
+    console.log(`主题从 ${oldTheme} 变更为 ${newTheme}`);
+  }
 });
 
 // 在任何位置获取或修改状态
 console.log(themeState.get()); // 'light'
-themeState.set('dark');
+themeState.set("dark");
 
 // 在组件中使用状态
 function ThemeConsumer() {
   const [theme, setTheme] = themeState.use();
-  
+
   return (
     <div className={theme}>
       当前主题: {theme}
-      <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+      <button onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
         切换主题
       </button>
     </div>
@@ -432,21 +437,25 @@ function ThemeConsumer() {
 // 仅读取状态 (v1.2.13+)
 function ReadOnlyThemeConsumer() {
   const theme = themeState.useGetter();
-  
+
   return <div>当前主题是: {theme}</div>;
 }
 ```
 
-- `createExternalState<T>(initialState, sideEffect?)`: 创建一个可在组件外部访问的状态
+- `createExternalState<T>(initialState, options?)`: 创建一个可在组件外部访问的状态
   - `initialState`: 初始状态值
-  - `sideEffect`: 可选的副作用函数，在状态更新时调用
+  - `options.sideEffect`: 可选的副作用函数，在状态更新时调用
   - 返回包含以下方法的对象:
     - `get()`: 获取当前状态值
     - `set(newState)`: 更新状态值
     - `use()`: React Hook，返回 `[state, setState]`，用于在组件中使用此状态
     - `useGetter()`: React Hook，仅返回状态值，当你只需要读取状态时非常有用
+  - `options.transform`:
+    - `get`
+    - `set`
 
 适用场景:
+
 - 全局状态管理（主题、用户设置等）
 - 跨组件通信
 - 服务或工具类中的响应式状态
@@ -464,10 +473,9 @@ function ReadOnlyThemeConsumer() {
 
 计数器
 
+#### `safePromiseTry` (v1.2.10+)
 
-#### `safePromiseTry` (v1.2.10+) 
-
-支持Promise.try使用Promise.try,否则使用内部实现
+支持 Promise.try 使用 Promise.try,否则使用内部实现
 
 #### `cx` (v1.2.5+)
 

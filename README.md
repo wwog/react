@@ -393,14 +393,19 @@ You can also use a container wrapper element:
 
 #### `createExternalState` (v1.2.9+, useGetter added in v1.2.13)
 
-A lightweight external state management utility that allows you to create and manage state outside the React component tree while maintaining perfect integration with components.
+> v1.2.21: Refactor the API to move sideeffects into options and enhance support for the transform interface
+> v1.2.13: add useGetter
+
+> A lightweight external state management utility that allows you to create and manage state outside the React component tree while maintaining perfect integration with components.
 
 ```tsx
 import { createExternalState } from "@wwog/react";
 
 // Create a global theme state
-const themeState = createExternalState("light", (newTheme, oldTheme) => {
-  console.log(`Theme changed from ${oldTheme} to ${newTheme}`);
+const themeState = createExternalState("light", {
+  sideEffect: (newTheme, oldTheme) => {
+    console.log(`Theme changed from ${oldTheme} to ${newTheme}`);
+  },
 });
 
 // Get or modify state from anywhere
@@ -429,15 +434,17 @@ function ReadOnlyThemeConsumer() {
 }
 ```
 
-- `createExternalState<T>(initialState, sideEffect?)`: Creates a state accessible outside components
+- `createExternalState<T>(initialState, options?)`: Creates a state accessible outside components
   - `initialState`: Initial state value
-  - `sideEffect`: Optional side effect function, called on state updates
+  - `options.sideEffect`: Optional side effect function, called on state updates
   - Returns an object with methods:
     - `get()`: Get the current state value
     - `set(newState)`: Update the state value
     - `use()`: React Hook, returns `[state, setState]` for using this state in components
     - `useGetter()`: React Hook that only returns the state value, useful when you only need to read the state
-
+  - `options.transform`:
+    - `get`
+    - `set`
 Use cases:
 
 - Global state management (themes, user settings, etc.)
