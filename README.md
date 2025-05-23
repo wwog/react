@@ -189,7 +189,9 @@ function UserList({ users }) {
 
 #### `<Clamp>` (v1.2.14+)
 
-A component for displaying text with a fixed number of lines, ellipsis, and optional extra content. Highly compatible without using webkit-box or JavaScript tricks.
+> Removed in v1.3.0. The compatibility problem is too big, the desktop web page works well, h5 has a problem.
+
+A component for displaying text with a fixed number of lines, ellipsis, and optional extra content. 
 
 ```tsx
 import { Clamp } from "@wwog/react";
@@ -435,6 +437,7 @@ function ReadOnlyThemeConsumer() {
 ```
 
 - `createExternalState<T>(initialState, options?)`: Creates a state accessible outside components
+
   - `initialState`: Initial state value
   - `options.sideEffect`: Optional side effect function, called on state updates
   - Returns an object with methods:
@@ -442,10 +445,8 @@ function ReadOnlyThemeConsumer() {
     - `set(newState)`: Update the state value
     - `use()`: React Hook, returns `[state, setState]` for using this state in components
     - `useGetter()`: React Hook that only returns the state value, useful when you only need to read the state
-  - `options.transform`:
-    - `get`
-    - `set`
-Use cases:
+  - `options.transform`: - `get` - `set`
+    Use cases:
 
 - Global state management (themes, user settings, etc.)
 - Cross-component communication

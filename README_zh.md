@@ -192,7 +192,9 @@ function UserList({ users }) {
 
 #### `<Clamp>` (v1.2.14+)
 
-用于固定行数，显示省略号且显示额外内容的组件。兼容性非常好，没有用到 webkit-box 和 js。
+> v1.3.0 移除。兼容性问题太大，桌面网页效果很好，h5有问题。
+
+用于固定行数，显示省略号且显示额外内容的组件。
 
 ```tsx
 import { Clamp } from "@wwog/react";
