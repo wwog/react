@@ -1,6 +1,5 @@
 import { FC } from "react";
 import { createExternalState } from "../../src";
-import { Clamp } from "../../src";
 
 const dateState = createExternalState(Date.now());
 
@@ -19,25 +18,6 @@ function App() {
           resize: "horizontal",
         }}
       >
-        <Clamp
-          maxLine={1}
-          text="或者"
-          extraHeight={22}
-          extraContent={
-            <span
-              style={{
-                fontSize: 14,
-                color: "blue",
-                cursor: "pointer",
-              }}
-              onClick={() => {
-                alert("点击了");
-              }}
-            >
-              查看更多
-            </span>
-          }
-        />
       </div>
       
     </div>
