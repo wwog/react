@@ -463,6 +463,10 @@ You can also use a container wrapper element:
 
 > A lightweight external state management utility that allows you to create and manage state outside the React component tree while maintaining perfect integration with components.
 
+### `createStorageState` (v1.3.2+)
+
+> Extends from createExternalState and uses storage to persist state, supports `localStorage` and `sessionStorage`
+
 ```tsx
 import { createExternalState } from "@wwog/react";
 

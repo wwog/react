@@ -192,7 +192,7 @@ function UserList({ users }) {
 
 #### `<Clamp>` (v1.2.14+)
 
-> v1.3.0 移除。兼容性问题太大，桌面网页效果很好，h5有问题。
+> v1.3.0 移除。兼容性问题太大，桌面网页效果很好，h5 有问题。
 
 用于固定行数，显示省略号且显示额外内容的组件。
 
@@ -525,6 +525,10 @@ function ReadOnlyThemeConsumer() {
 - 跨组件通信
 - 服务或工具类中的响应式状态
 - 与非 React 代码共享状态
+
+#### `createStorageState` (v1.3.2+)
+
+> 扩展自`createExternalState`，使用 storage 持久化状态,支持`localStorage`和`sessionStorage`
 
 #### `formatDate`
 

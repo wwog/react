@@ -200,3 +200,38 @@ export function createExternalState<T, U = T>(
   //@ts-expect-error ignore
   return { get, set, use, useGetter, __listeners: listeners };
 }
+
+export interface StorageStateOptions<T, U> {
+  sideEffect?: (newState: T) => void;
+  transform?: Transform<T, U>;
+  storageType: "local" | "session";
+}
+
+export function createStorageState<T, U = T>(
+  key: string,
+  initialState: T,
+  options?: StorageStateOptions<T, U>
+) {
+  const { storageType = "local", sideEffect, transform } = options ?? {};
+  const storage = storageType === "local" ? localStorage : sessionStorage;
+  let _initState: T = initialState;
+  const storedValue = storage.getItem(key);
+  if (storedValue) {
+    try {
+      _initState = JSON.parse(storedValue);
+    } catch (error) {
+      console.warn(
+        `Failed to parse ${storageType}Storage value for key "${key}", using initial state:`,
+        error
+      );
+      _initState = initialState;
+    }
+  }
+  return createExternalState(_initState, {
+    sideEffect: (newState) => {
+      storage.setItem(key, JSON.stringify(newState));
+      sideEffect?.(newState);
+    },
+    transform,
+  });
+}
