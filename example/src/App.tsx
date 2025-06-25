@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { createExternalState } from "../../src";
+import { Observer,createExternalState,SizeBox } from "../../src";
 
 const dateState = createExternalState(Date.now());
 
@@ -18,8 +18,18 @@ function App() {
           resize: "horizontal",
         }}
       >
+        <SizeBox h={60}/>
+        <SizeBox h={60}/>
+        <SizeBox h={60}/>
+        <SizeBox h={60}/>
+        <SizeBox h={60}/>
+        <SizeBox h={60}/>
+        <Observer onIntersect={(entry) => {
+         console.log('onIntersect',entry)
+        }}>
+          <Component />
+        </Observer>
       </div>
-      
     </div>
   );
 }

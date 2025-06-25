@@ -313,6 +313,69 @@ function Example() {
 - `format`: Optional function to format the date, defaults to `toLocaleString()`.
 - `children`: Function to render the formatted date, receives the formatted date as an argument.
 
+#### `<Observer>` (v1.3.1+)
+
+A declarative Intersection Observer component for lazy loading, infinite scrolling, and viewport-based interactions.
+
+```tsx
+import { Observer } from "@wwog/react";
+
+function LazyImage({ src, alt }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <Observer
+      onIntersect={(entry) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      }}
+      threshold={0.1}
+      triggerOnce
+    >
+      <div className="image-container">
+        {isVisible ? (
+          <img src={src} alt={alt} />
+        ) : (
+          <div className="placeholder">Loading...</div>
+        )}
+      </div>
+    </Observer>
+  );
+}
+
+// Infinite scrolling example
+function InfiniteList({ items, onLoadMore }) {
+  return (
+    <div>
+      {items.map((item) => (
+        <div key={item.id}>{item.content}</div>
+      ))}
+      <Observer
+        onIntersect={(entry) => {
+          if (entry.isIntersecting) {
+            onLoadMore();
+          }
+        }}
+        rootMargin="100px"
+      >
+        <div>Loading more...</div>
+      </Observer>
+    </div>
+  );
+}
+```
+
+- `onIntersect`: Callback function triggered when intersection changes, receives IntersectionObserverEntry as parameter.
+- `threshold`: Intersection threshold, can be a number (0-1) or array of numbers, defaults to 0.
+- `root`: Root element for intersection observation, defaults to viewport.
+- `rootMargin`: Root margin for expanding/shrinking the root's bounding box, defaults to "0px".
+- `triggerOnce`: Whether to trigger only once, defaults to false.
+- `disabled`: Whether to disable observation, defaults to false.
+- `children`: Child elements to observe.
+- `className`: CSS class name for the wrapper element.
+- `style`: Inline styles for the wrapper element.
+
 #### `<SizeBox>`
 
 Create a fixed-size container for layout adjustment and spacing control.

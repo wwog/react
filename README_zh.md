@@ -319,6 +319,69 @@ function Example() {
 - `format`：可选的格式化日期的函数，默认使用 `toLocaleString()`。
 - `children`：渲染格式化后日期的函数，接收格式化后的日期作为参数。
 
+#### `<Observer>` (v1.3.1+)
+
+声明式的 Intersection Observer 组件，用于懒加载、无限滚动和基于视口的交互。
+
+```tsx
+import { Observer } from "@wwog/react";
+
+function LazyImage({ src, alt }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <Observer
+      onIntersect={(entry) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      }}
+      threshold={0.1}
+      triggerOnce
+    >
+      <div className="image-container">
+        {isVisible ? (
+          <img src={src} alt={alt} />
+        ) : (
+          <div className="placeholder">加载中...</div>
+        )}
+      </div>
+    </Observer>
+  );
+}
+
+// 无限滚动示例
+function InfiniteList({ items, onLoadMore }) {
+  return (
+    <div>
+      {items.map((item) => (
+        <div key={item.id}>{item.content}</div>
+      ))}
+      <Observer
+        onIntersect={(entry) => {
+          if (entry.isIntersecting) {
+            onLoadMore();
+          }
+        }}
+        rootMargin="100px"
+      >
+        <div>加载更多...</div>
+      </Observer>
+    </div>
+  );
+}
+```
+
+- `onIntersect`：交集变化时触发的回调函数，接收 IntersectionObserverEntry 作为参数。
+- `threshold`：交集阈值，可以是数字（0-1）或数字数组，默认为 0。
+- `root`：用于交集观察的根元素，默认为视口。
+- `rootMargin`：用于扩展/收缩根边界框的根边距，默认为 "0px"。
+- `triggerOnce`：是否只触发一次，默认为 false。
+- `disabled`：是否禁用观察，默认为 false。
+- `children`：要观察的子元素。
+- `className`：包装元素的 CSS 类名。
+- `style`：包装元素的内联样式。
+
 #### `<SizeBox>`
 
 创建固定尺寸的容器，用于布局调整和间距控制。
