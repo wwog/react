@@ -32,7 +32,6 @@ function promiseTry<T, U extends unknown[]>(
 export const safePromiseTry = (() => {
   if (typeof Promise.try === "function") {
     return Promise.try.bind(Promise);
-  } else {
-    return promiseTry;
   }
+  return promiseTry;
 })();

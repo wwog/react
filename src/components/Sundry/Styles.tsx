@@ -91,12 +91,6 @@ export const Styles: FC<StylesProps> = ({
   if (!children) {
     return null;
   }
-  if (Children.count(children) > 1) {
-    console.error(
-      "<Styles>: children has more than one child. Please check your code."
-    );
-    return <Fragment>{children}</Fragment>;
-  }
 
   if (!className) {
     return <Fragment>{children}</Fragment>;
@@ -108,6 +102,12 @@ export const Styles: FC<StylesProps> = ({
   if (asWrapper) {
     const Tag = asWrapper === true ? "div" : asWrapper;
     return <Tag className={generatedClassName}>{children}</Tag>;
+  }
+  if (Children.count(children) > 1) {
+    console.error(
+      "<Styles>: children has more than one child. Please check your code."
+    );
+    return <Fragment>{children}</Fragment>;
   }
   if (isValidElement(children)) {
     const typeChildren = children as any;
