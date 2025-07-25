@@ -5,7 +5,10 @@ export interface ObserverProps {
    * @description_en Callback function when intersection occurs.
    * @description_zh 交叉时触发的回调函数。
    */
-  onIntersect: (entry: IntersectionObserverEntry, observer: IntersectionObserver) => void;
+  onIntersect: (
+    entry: IntersectionObserverEntry,
+    observer: IntersectionObserver
+  ) => void;
   /**
    * @description_en Threshold(s) at which to trigger the callback. Default is 0.1.
    * @description_zh 触发回调的阈值，默认为 0.1。
@@ -76,14 +79,14 @@ export interface ObserverProps {
  * <Observer onIntersect={loadImage} triggerOnce>
  *   <img data-src="image.jpg" alt="Lazy loaded" />
  * </Observer>
- * 
+ *
  * // 无限滚动示例
  * <Observer onIntersect={loadMore} threshold={0.1}>
  *   <div>滚动到这里加载更多</div>
  * </Observer>
- * 
+ *
  * // 自定义根元素和边距
- * <Observer 
+ * <Observer
  *   onIntersect={handleIntersect}
  *   root={scrollContainer}
  *   rootMargin="100px"
@@ -115,7 +118,7 @@ export const Observer: React.FC<ObserverProps> = ({
 
     // 检查浏览器支持
     if (!window.IntersectionObserver) {
-      console.warn('IntersectionObserver is not supported in this browser');
+      console.warn("IntersectionObserver is not supported in this browser");
       return;
     }
 
@@ -123,17 +126,15 @@ export const Observer: React.FC<ObserverProps> = ({
 
     const handleIntersect = (entries: IntersectionObserverEntry[]) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          if (triggerOnce && hasTriggeredRef.current) {
-            return;
-          }
+        if (triggerOnce && hasTriggeredRef.current) {
+          return;
+        }
 
-          onIntersect(entry, observerRef.current!);
-          
-          if (triggerOnce) {
-            hasTriggeredRef.current = true;
-            observerRef.current?.unobserve(element);
-          }
+        onIntersect(entry, observerRef.current!);
+
+        if (triggerOnce) {
+          hasTriggeredRef.current = true;
+          observerRef.current?.unobserve(element);
         }
       });
     };
