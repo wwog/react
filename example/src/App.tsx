@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { Observer,createExternalState,SizeBox } from "../../src";
+import { FC, useEffect } from "react";
+import { createExternalState, useScreen } from "../../src";
 
 const dateState = createExternalState(Date.now());
 
@@ -9,29 +9,11 @@ export const Component: FC = () => {
 };
 
 function App() {
-  return (
-    <div>
-      <div
-        style={{
-          width: 200,
-          border: "1px solid #ccc",
-          resize: "horizontal",
-        }}
-      >
-        <SizeBox h={60}/>
-        <SizeBox h={60}/>
-        <SizeBox h={60}/>
-        <SizeBox h={60}/>
-        <SizeBox h={60}/>
-        <SizeBox h={60}/>
-        <Observer onIntersect={(entry) => {
-         console.log('onIntersect',entry)
-        }}>
-          <Component />
-        </Observer>
-      </div>
-    </div>
-  );
+  const currentBreakpoint = useScreen();
+  useEffect(() => {
+    console.log("Current breakpoint:", currentBreakpoint);
+  }, [currentBreakpoint]);
+  return <div></div>;
 }
 
 export default App;
