@@ -465,7 +465,7 @@ function Example() {
 > 返回当前断点名称
 - 支持传入自定义断点，默认采用tailwindcss的相同值断点定义
 
-此hook基于监听实现，如果需要多次使用useScreen但不会变化建议使用延伸的`BreakpointProvider`和`useBreakpoint`,保持全局只会监听一次
+此hook基于监听实现，如果需要多次使用useScreen但不会变化传参，建议封装Context
 
 开发记录： 内部通过mediaQuery实现，不会监听某个断点而是优化至监听当前断点的前和后两个断点以优化性能
 

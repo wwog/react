@@ -458,7 +458,7 @@ You can also use a container wrapper element:
 
 - Supports passing in custom breakpoints, defaults to the same breakpoint definitions as TailwindCSS
 
-This hook is implemented based on listening. If you need to use `useScreen` multiple times without changes, it is recommended to use the extended `BreakpointProvider` and `useBreakpoint` to ensure global listening occurs only once.
+This hook is implemented based on listening. If useScreen needs to be used multiple times without changing the passed parameters, it is recommended to wrap Context
 
 Development notes: Internally implemented via `mediaQuery`, it does not listen to a specific breakpoint but is optimized to listen only to the previous and next breakpoints of the current breakpoint for better performance.
 

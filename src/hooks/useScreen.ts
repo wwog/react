@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   breakpoints,
   DefBreakpointDesc,
@@ -96,25 +96,4 @@ export function useScreen(breakpointDesc: BreakpointDesc = DefBreakpointDesc) {
   }, [breakpointDesc]);
 
   return currentBreakpoint;
-}
-
-const BreakpointContext = createContext<BreakpointName>("base");
-
-export function BreakpointProvider({
-  children,
-  breakpointDesc,
-}: {
-  children: React.ReactNode;
-  breakpointDesc?: BreakpointDesc;
-}) {
-  const breakpoint = useScreen(breakpointDesc);
-  return (
-    <BreakpointContext.Provider value={breakpoint}>
-      {children}
-    </BreakpointContext.Provider>
-  );
-}
-
-export function useBreakpoint() {
-  return useContext(BreakpointContext);
 }
