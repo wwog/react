@@ -191,7 +191,7 @@ function UserList({ users }) {
 
 > Removed in v1.3.0. The compatibility problem is too big, the desktop web page works well, h5 has a problem.
 
-A component for displaying text with a fixed number of lines, ellipsis, and optional extra content. 
+A component for displaying text with a fixed number of lines, ellipsis, and optional extra content.
 
 ```tsx
 import { Clamp } from "@wwog/react";
@@ -451,6 +451,16 @@ You can also use a container wrapper element:
 #### useControlled
 
 - Applied to states that can be controlled or uncontrolled components
+
+#### useScreen (v1.3.5+)
+
+> Return the current breakpoint name
+
+- Supports passing in custom breakpoints, defaults to the same breakpoint definitions as TailwindCSS
+
+This hook is implemented based on listening. If you need to use `useScreen` multiple times without changes, it is recommended to use the extended `BreakpointProvider` and `useBreakpoint` to ensure global listening occurs only once.
+
+Development notes: Internally implemented via `mediaQuery`, it does not listen to a specific breakpoint but is optimized to listen only to the previous and next breakpoints of the current breakpoint for better performance.
 
 ### utils
 
