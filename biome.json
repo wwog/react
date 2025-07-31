@@ -23,7 +23,8 @@
       },
       "style": {
         "useTemplate": "warn",
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "noParameterAssign": "off"
       },
       "a11y": {
         "useKeyWithClickEvents": "off",
