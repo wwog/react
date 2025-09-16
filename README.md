@@ -167,7 +167,7 @@ import { Toggle } from "@wwog/react";
 
 #### `<ArrayRender>`
 
-Efficiently render array data, supports filtering and custom rendering.
+Efficiently render array data, supports filtering, sorting, and custom rendering. Optimized for performance with minimal loops.
 
 ```tsx
 import { ArrayRender } from "@wwog/react";
@@ -177,14 +177,25 @@ function UserList({ users }) {
     <ArrayRender
       items={users}
       filter={(user) => user.active}
+      sort={(a, b) => a.name.localeCompare(b.name)}
       renderItem={(user, index) => (
         <div key={user.id}>
           {index + 1}. {user.name}
         </div>
       )}
+      renderEmpty={() => <div>No users found</div>}
     />
   );
 }
+```
+
+- `items`: Array of data to render
+- `renderItem`: Function to render each item, receives (item, index) as parameters
+- `filter`: Optional filter function to filter items
+- `sort`: Optional sort function for array sorting, uses standard comparison function (a, b) => number
+- `renderEmpty`: Optional function to render content when array is empty
+
+**Performance Note**: When no sorting is needed, filtering is done during the map loop for optimal performance. When sorting is provided, filtering is applied first, then sorting, to minimize operations.
 ```
 
 #### `<Clamp>` (v1.2.14+)

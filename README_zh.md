@@ -170,7 +170,7 @@ import { Toggle } from "@wwog/react";
 
 #### `<ArrayRender>`
 
-内部仅单次循环。高效渲染数组数据的工具组件，支持过滤和自定义渲染。
+高效渲染数组数据的工具组件，支持过滤、排序和自定义渲染。性能优化，尽可能减少循环次数。
 
 ```tsx
 import { ArrayRender } from "@wwog/react";
@@ -180,14 +180,25 @@ function UserList({ users }) {
     <ArrayRender
       items={users}
       filter={(user) => user.active}
+      sort={(a, b) => a.name.localeCompare(b.name)}
       renderItem={(user, index) => (
         <div key={user.id}>
           {index + 1}. {user.name}
         </div>
       )}
+      renderEmpty={() => <div>没有找到用户</div>}
     />
   );
 }
+```
+
+- `items`: 要渲染的数组数据
+- `renderItem`: 渲染每个项目的函数，接收 (item, index) 作为参数
+- `filter`: 可选的过滤函数，用于过滤数组项
+- `sort`: 可选的排序函数，用于数组排序，使用标准比较函数 (a, b) => number
+- `renderEmpty`: 可选的函数，用于在数组为空时渲染内容
+
+**性能说明**: 当不需要排序时，过滤在 map 循环中进行以获得最佳性能。当提供排序时，先执行过滤再排序，以减少操作次数。
 ```
 
 #### `<Clamp>` (v1.2.14+)
