@@ -484,6 +484,96 @@ function Example() {
 
 - 用于部分组件的内部函数,如需要也可使用
 
+#### `ruleChecker` (v1.3.9+)
+
+一个类型安全的数据验证工具，为不同数据类型提供全面的验证规则，并具有完整的 TypeScript 支持。
+
+```tsx
+import { ruleChecker } from "@wwog/react";
+
+// 定义数据和验证规则
+const userData = {
+  username: 'john',
+  email: 'john@example.com',
+  age: 25,
+  hobbies: ['reading', 'coding']
+};
+
+const validationRules = {
+  username: { required: true, min: 3, max: 20 },
+  email: { required: true, email: true },
+  age: { required: true, min: 18, max: 120 },
+  hobbies: { min: 1, max: 5, unique: true }
+};
+
+// 验证数据
+const result = ruleChecker(userData, validationRules);
+
+if (result.valid) {
+  console.log('数据有效:', result.data);
+} else {
+  console.log('验证错误:', result.errors);
+  console.log('字段错误:', result.fieldErrors);
+}
+```
+
+**功能特点:**
+- **类型安全**: 完整的 TypeScript 支持，自动类型推断
+- **多种数据类型**: 支持字符串、数字、布尔值和数组
+- **全面的规则**: 内置长度、范围、格式、唯一性等验证
+- **自定义验证器**: 支持自定义验证函数
+- **依赖验证**: 基于其他字段值进行验证
+- **数组元素验证**: 验证数组内的单个元素
+- **多规则支持**: 为单个字段应用多个验证规则
+- **详细错误报告**: 获取通用错误和字段特定错误
+
+**可用规则:**
+- **通用规则**: `required`, `message`, `validator`, `dependsOn`
+- **字符串规则**: `min`, `max`, `len`, `regex`, `email`, `url`, `phone`
+- **数字规则**: `min`, `max`
+- **数组规则**: `min`, `max`, `len`, `unique`, `elementRule`
+- **布尔值规则**: 基础验证和自定义验证器
+
+**复杂示例:**
+```tsx
+const registrationData = {
+  username: 'user123',
+  email: 'user@example.com',
+  password: 'SecurePass123',
+  confirmPassword: 'SecurePass123',
+  age: 25,
+  tags: ['developer', 'typescript'],
+  terms: true
+};
+
+const rules = {
+  username: { required: true, min: 3, max: 20, regex: /^[a-zA-Z0-9_]+$/ },
+  email: { required: true, email: true },
+  password: [
+    { required: true, min: 8 },
+    { regex: /[A-Z]/, message: '密码必须包含大写字母' },
+    { regex: /[0-9]/, message: '密码必须包含数字' }
+  ],
+  confirmPassword: {
+    required: true,
+    validator: (value, data) => value === data.password || '两次密码不一致'
+  },
+  age: { required: true, min: 18, max: 120 },
+  tags: {
+    min: 1,
+    max: 10,
+    unique: true,
+    elementRule: { min: 2, max: 20 } // 每个标签必须是 2-20 个字符
+  },
+  terms: {
+    required: true,
+    validator: (value) => value === true || '您必须接受条款'
+  }
+};
+
+const result = ruleChecker(registrationData, rules);
+```
+
 #### `createExternalState` (v1.2.9+)
 
 一个轻量级的外部状态管理工具，让你可以在 React 组件树外部创建和管理状态，同时保持与组件的完美集成。

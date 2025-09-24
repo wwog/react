@@ -477,6 +477,96 @@ Development notes: Internally implemented via `mediaQuery`, it does not listen t
 
 > Internal functions used by some components, which can also be used if needed
 
+#### `ruleChecker` (v1.3.9+)
+
+A type-safe data validation utility that provides comprehensive validation rules for different data types with full TypeScript support.
+
+```tsx
+import { ruleChecker } from "@wwog/react";
+
+// Define your data and validation rules
+const userData = {
+  username: 'john',
+  email: 'john@example.com',
+  age: 25,
+  hobbies: ['reading', 'coding']
+};
+
+const validationRules = {
+  username: { required: true, min: 3, max: 20 },
+  email: { required: true, email: true },
+  age: { required: true, min: 18, max: 120 },
+  hobbies: { min: 1, max: 5, unique: true }
+};
+
+// Validate the data
+const result = ruleChecker(userData, validationRules);
+
+if (result.valid) {
+  console.log('Data is valid:', result.data);
+} else {
+  console.log('Validation errors:', result.errors);
+  console.log('Field-specific errors:', result.fieldErrors);
+}
+```
+
+**Features:**
+- **Type-safe**: Full TypeScript support with automatic type inference
+- **Multiple data types**: Support for strings, numbers, booleans, and arrays
+- **Comprehensive rules**: Built-in validation for length, range, format, uniqueness, etc.
+- **Custom validators**: Support for custom validation functions
+- **Dependency validation**: Validate fields based on other field values
+- **Array element validation**: Validate individual elements within arrays
+- **Multiple rule support**: Apply multiple validation rules to a single field
+- **Detailed error reporting**: Get both general errors and field-specific errors
+
+**Available Rules:**
+- **Common rules**: `required`, `message`, `validator`, `dependsOn`
+- **String rules**: `min`, `max`, `len`, `regex`, `email`, `url`, `phone`
+- **Number rules**: `min`, `max`
+- **Array rules**: `min`, `max`, `len`, `unique`, `elementRule`
+- **Boolean rules**: Basic validation with custom validators
+
+**Complex Example:**
+```tsx
+const registrationData = {
+  username: 'user123',
+  email: 'user@example.com',
+  password: 'SecurePass123',
+  confirmPassword: 'SecurePass123',
+  age: 25,
+  tags: ['developer', 'typescript'],
+  terms: true
+};
+
+const rules = {
+  username: { required: true, min: 3, max: 20, regex: /^[a-zA-Z0-9_]+$/ },
+  email: { required: true, email: true },
+  password: [
+    { required: true, min: 8 },
+    { regex: /[A-Z]/, message: 'Password must contain uppercase letter' },
+    { regex: /[0-9]/, message: 'Password must contain number' }
+  ],
+  confirmPassword: {
+    required: true,
+    validator: (value, data) => value === data.password || 'Passwords do not match'
+  },
+  age: { required: true, min: 18, max: 120 },
+  tags: {
+    min: 1,
+    max: 10,
+    unique: true,
+    elementRule: { min: 2, max: 20 } // Each tag must be 2-20 characters
+  },
+  terms: {
+    required: true,
+    validator: (value) => value === true || 'You must accept the terms'
+  }
+};
+
+const result = ruleChecker(registrationData, rules);
+```
+
 #### `createExternalState` (v1.2.9+, useGetter added in v1.2.13)
 
 > v1.2.21: Refactor the API to move sideeffects into options and enhance support for the transform interface
