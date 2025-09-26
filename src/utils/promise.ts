@@ -35,3 +35,18 @@ export const safePromiseTry = (() => {
   }
   return promiseTry;
 })();
+
+export const safePromiseWithResolvers = (() => {
+  if (typeof Promise.withResolvers === "function") {
+    return Promise.withResolvers.bind(Promise);
+  }
+  return <T>() => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: any) => void;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+})();
