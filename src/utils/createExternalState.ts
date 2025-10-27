@@ -213,23 +213,32 @@ export function createStorageState<T, U = T>(
   options?: StorageStateOptions<T, U>
 ) {
   const { storageType = "local", sideEffect, transform } = options ?? {};
-  const storage = storageType === "local" ? localStorage : sessionStorage;
   let _initState: T = initialState;
-  const storedValue = storage.getItem(key);
-  if (storedValue) {
-    try {
-      _initState = JSON.parse(storedValue);
-    } catch (error) {
-      console.warn(
-        `Failed to parse ${storageType}Storage value for key "${key}", using initial state:`,
-        error
-      );
-      _initState = initialState;
+  
+  // 只在客户端环境中读取存储
+  if (typeof window !== 'undefined') {
+    const storage = storageType === "local" ? localStorage : sessionStorage;
+    const storedValue = storage.getItem(key);
+    if (storedValue) {
+      try {
+        _initState = JSON.parse(storedValue);
+      } catch (error) {
+        console.warn(
+          `Failed to parse ${storageType}Storage value for key "${key}", using initial state:`,
+          error
+        );
+        _initState = initialState;
+      }
     }
   }
+  
   return createExternalState(_initState, {
     sideEffect: (newState) => {
-      storage.setItem(key, JSON.stringify(newState));
+      // 只在客户端环境中写入存储
+      if (typeof window !== 'undefined') {
+        const storage = storageType === "local" ? localStorage : sessionStorage;
+        storage.setItem(key, JSON.stringify(newState));
+      }
       sideEffect?.(newState);
     },
     transform,
