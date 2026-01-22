@@ -1,4 +1,4 @@
-import React, { Fragment, type ReactNode } from "react";
+import React, { Fragment, useRef, type ReactNode } from "react";
 
 //#region component Types
 export interface ArrayRenderProps<T> {
@@ -26,11 +26,11 @@ export function ArrayRender<T>(props: ArrayRenderProps<T>): ReactNode {
   // 如果需要排序，先处理排序和过滤
   if (sort) {
     let processedItems = [...items];
-    
+
     if (filter) {
       processedItems = processedItems.filter(filter);
     }
-    
+
     processedItems = processedItems.sort(sort);
 
     if (processedItems.length === 0) {
@@ -46,15 +46,20 @@ export function ArrayRender<T>(props: ArrayRenderProps<T>): ReactNode {
     );
   }
 
+  let nullCount = 0;
+
+  const renderItems = items.map((item, index) => {
+    if (filter && !filter(item)) {
+      nullCount++;
+      return null;
+    }
+    return renderItem(item, index);
+  })
+
   // 如果不需要排序，保持原来的循环中过滤方式
   return (
     <Fragment>
-      {items.map((item, index) => {
-        if (filter && !filter(item)) {
-          return null;
-        }
-        return renderItem(item, index);
-      })}
+      {nullCount === items.length ? renderEmpty ? renderEmpty() : null : renderItems}
     </Fragment>
   );
 }

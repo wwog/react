@@ -1,5 +1,5 @@
 import { FC, useEffect } from "react";
-import { createExternalState, useScreen } from "../../src";
+import { ArrayRender, createExternalState, useScreen } from "../../src";
 
 const dateState = createExternalState(Date.now());
 
@@ -10,10 +10,17 @@ export const Component: FC = () => {
 
 function App() {
   const currentBreakpoint = useScreen();
+
+
   useEffect(() => {
     console.log("Current breakpoint:", currentBreakpoint);
   }, [currentBreakpoint]);
-  return <div></div>;
+  return <ArrayRender
+    items={[1, 2, 3, 4, 5]}
+    renderItem={(item) => <div>{item}</div>}
+    filter={(item) => item > 100}
+    renderEmpty={() => <div>No items</div>}
+  />
 }
 
 export default App;
