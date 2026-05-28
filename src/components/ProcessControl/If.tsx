@@ -35,8 +35,7 @@ export const If = ({
   condition,
   children,
 }: IfProps): React.ReactElement | null => {
-  let thenChild: React.ReactElement<ThenProps> | null =
-    null as React.ReactElement<ThenProps> | null;
+  let thenChild: React.ReactElement<ThenProps> | null = null;
   let elseChild: React.ReactElement<ElseProps> | null = null;
   const elseIfChildren: React.ReactElement<ElseIfProps>[] = [];
 
@@ -79,7 +78,7 @@ export const If = ({
   }
 
   if (elseChild) {
-    return <>{(elseChild as React.ReactElement<ElseProps>).props.children}</>;
+    return <>{elseChild.props.children}</>;
   }
 
   return null;
