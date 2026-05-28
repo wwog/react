@@ -1,2 +1,2 @@
-export * from "./constant";
-export * from "./Flex";
+export * from './constant'
+export * from './Flex'

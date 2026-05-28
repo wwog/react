@@ -1,99 +1,88 @@
-import { useEffect, useState } from "react";
-import {
-  breakpoints,
-  DefBreakpointDesc,
-  type BreakpointDesc,
-  type BreakpointName,
-} from "../utils";
+import {useEffect, useMemo, useRef, useState} from 'react'
+import {type BreakpointDesc, type BreakpointName, DefBreakpointDesc, breakpoints} from '../utils'
 
-const reverseBreakpoints = [...breakpoints].reverse();
+const reverseBreakpoints = [...breakpoints].reverse()
+
+const isBrowser = typeof window !== 'undefined'
 
 export function getCurrentBreakpoint(
   breakpointDesc: BreakpointDesc,
-  width: number
+  width: number,
 ): BreakpointName {
   for (const bp of reverseBreakpoints) {
-    const bpValue = breakpointDesc[bp];
+    const bpValue = breakpointDesc[bp]
     if (bpValue !== undefined && !Number.isNaN(bpValue) && width >= bpValue) {
-      return bp;
+      return bp
     }
   }
-  return "base";
+  return 'base'
 }
 
 export function useScreen(breakpointDesc: BreakpointDesc = DefBreakpointDesc) {
+  // 用 JSON 序列化稳定化对象引用，避免调用方每次传字面量对象导致 effect 无限重跑
+  const stableKey = useMemo(() => JSON.stringify(breakpointDesc), [breakpointDesc])
+  const descRef = useRef(breakpointDesc)
+  descRef.current = breakpointDesc
+
   const [currentBreakpoint, setCurrentBreakpoint] = useState<BreakpointName>(
-    getCurrentBreakpoint(breakpointDesc, window.innerWidth)
-  );
+    // lazy initializer：SSR 环境下 window 不存在，fallback 到 "base"
+    () => (isBrowser ? getCurrentBreakpoint(breakpointDesc, window.innerWidth) : 'base'),
+  )
 
   useEffect(() => {
-    let mediaQueries: MediaQueryList[] = [];
-    let listeners: (() => void)[] = [];
+    if (!isBrowser) return
+
+    let mediaQueries: MediaQueryList[] = []
+    let listeners: (() => void)[] = []
 
     const updateMediaQueries = () => {
-      // 清理旧的监听器
-      listeners.forEach((removeListener) => removeListener());
-      mediaQueries = [];
-      listeners = [];
+      listeners.forEach((removeListener) => removeListener())
+      mediaQueries = []
+      listeners = []
 
-      // 计算当前断点
-      const currentBp = getCurrentBreakpoint(breakpointDesc, window.innerWidth);
-      setCurrentBreakpoint(currentBp);
+      const desc = descRef.current
+      const currentBp = getCurrentBreakpoint(desc, window.innerWidth)
+      setCurrentBreakpoint(currentBp)
 
-      // 找到当前断点的索引
-      const currentIndex = breakpoints.indexOf(currentBp);
+      const currentIndex = breakpoints.indexOf(currentBp)
 
-      // 监听下一个断点（min-width）
-      const nextBp = breakpoints[currentIndex + 1];
-      if (nextBp && breakpointDesc[nextBp] !== undefined) {
-        const nextMinWidth = breakpointDesc[nextBp];
+      const nextBp = breakpoints[currentIndex + 1]
+      if (nextBp && desc[nextBp] !== undefined) {
+        const nextMinWidth = desc[nextBp]
         if (!Number.isNaN(nextMinWidth)) {
-          const mediaQuery = window.matchMedia(
-            `(min-width: ${nextMinWidth}px)`
-          );
-          mediaQueries.push(mediaQuery);
-          const handleMediaChange = () => updateMediaQueries();
-          mediaQuery.addEventListener("change", handleMediaChange);
-          listeners.push(() =>
-            mediaQuery.removeEventListener("change", handleMediaChange)
-          );
+          const mediaQuery = window.matchMedia(`(min-width: ${nextMinWidth}px)`)
+          mediaQueries.push(mediaQuery)
+          const handleMediaChange = () => updateMediaQueries()
+          mediaQuery.addEventListener('change', handleMediaChange)
+          listeners.push(() => mediaQuery.removeEventListener('change', handleMediaChange))
         } else {
-          throw new Error(
-            `Invalid breakpoint value for ${nextBp}: ${breakpointDesc[nextBp]}`
-          );
+          throw new Error(`Invalid breakpoint value for ${nextBp}: ${desc[nextBp]}`)
         }
       }
 
-      // 监听上一个断点（max-width）
-      const prevBp = breakpoints[currentIndex - 1];
-      if (prevBp && breakpointDesc[prevBp] !== undefined) {
-        const prevMinWidth = breakpointDesc[prevBp];
+      const prevBp = breakpoints[currentIndex - 1]
+      if (prevBp && desc[prevBp] !== undefined) {
+        const prevMinWidth = desc[prevBp]
         if (!Number.isNaN(prevMinWidth)) {
-          const mediaQuery = window.matchMedia(
-            `(max-width: ${prevMinWidth - 1}px)`
-          );
-          mediaQueries.push(mediaQuery);
-          const handleMediaChange = () => updateMediaQueries();
-          mediaQuery.addEventListener("change", handleMediaChange);
-          listeners.push(() =>
-            mediaQuery.removeEventListener("change", handleMediaChange)
-          );
+          const mediaQuery = window.matchMedia(`(max-width: ${prevMinWidth - 1}px)`)
+          mediaQueries.push(mediaQuery)
+          const handleMediaChange = () => updateMediaQueries()
+          mediaQuery.addEventListener('change', handleMediaChange)
+          listeners.push(() => mediaQuery.removeEventListener('change', handleMediaChange))
         } else {
-          throw new Error(
-            `Invalid breakpoint value for ${prevBp}: ${breakpointDesc[prevBp]}`
-          );
+          throw new Error(`Invalid breakpoint value for ${prevBp}: ${desc[prevBp]}`)
         }
       }
-    };
+    }
 
-    // 初次执行
-    updateMediaQueries();
+    updateMediaQueries()
 
-    // 清理函数
     return () => {
-      listeners.forEach((removeListener) => removeListener());
-    };
-  }, [breakpointDesc]);
+      listeners.forEach((removeListener) => removeListener())
+    }
+    // stableKey 作为稳定化的依赖，替代直接依赖 breakpointDesc 对象引用
+    // biome-ignore lint/correctness/useExhaustiveDependencies: stableKey is the stable proxy for breakpointDesc object identity
+  }, [stableKey])
 
-  return currentBreakpoint;
+  return currentBreakpoint
 }

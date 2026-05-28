@@ -16,37 +16,37 @@ function promiseTry<T, U extends unknown[]>(
   ...args: U
 ): Promise<Awaited<T>> {
   try {
-    const result = callbackFn(...args); // Call the callback function
+    const result = callbackFn(...args) // Call the callback function
     // Check if the result is a PromiseLike (Promise)
     if (result instanceof Promise) {
-      return result; // If it's a promise, return it directly
+      return result // If it's a promise, return it directly
     }
     // If the result is not a promise, resolve it with Promise.resolve
-    return Promise.resolve(result as Awaited<T>);
+    return Promise.resolve(result as Awaited<T>)
   } catch (error) {
     // If the callback throws an error, reject the promise
-    return Promise.reject(error);
+    return Promise.reject(error)
   }
 }
 
 export const safePromiseTry = (() => {
-  if (typeof Promise.try === "function") {
-    return Promise.try.bind(Promise);
+  if (typeof Promise.try === 'function') {
+    return Promise.try.bind(Promise)
   }
-  return promiseTry;
-})();
+  return promiseTry
+})()
 
 export const safePromiseWithResolvers = (() => {
-  if (typeof Promise.withResolvers === "function") {
-    return Promise.withResolvers.bind(Promise);
+  if (typeof Promise.withResolvers === 'function') {
+    return Promise.withResolvers.bind(Promise)
   }
   return <T>() => {
-    let resolve!: (value: T) => void;
-    let reject!: (reason?: any) => void;
+    let resolve!: (value: T) => void
+    let reject!: (reason?: any) => void
     const promise = new Promise((res, rej) => {
-      resolve = res;
-      reject = rej;
-    });
-    return { promise, resolve, reject };
-  };
-})();
+      resolve = res
+      reject = rej
+    })
+    return {promise, resolve, reject}
+  }
+})()

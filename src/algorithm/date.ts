@@ -1,5 +1,5 @@
-import * as zllersKongruenz from "./date/zellersKongruenz";
+import * as zllersKongruenz from './date/zellersKongruenz'
 
 export const weekday = {
   zllersKongruenz,
-};
+}

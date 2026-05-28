@@ -42,8 +42,8 @@ h = (q + [13(m + 1)/5] + Y + [Y / 4] + 5) mod 7
  * @returns 星期几（0=周日, 1=周一, ..., 6=周六）
  */
 export function weekday(y: number, m: number, d: number): number {
-  const adjustedY = m < 3 ? y - 1 : y - 2;
-  const adjustedD = d + adjustedY;
+  const adjustedY = m < 3 ? y - 1 : y - 2
+  const adjustedD = d + adjustedY
   return (
     (Math.floor((23 * m) / 9) +
       adjustedD +
@@ -52,7 +52,7 @@ export function weekday(y: number, m: number, d: number): number {
       Math.floor(y / 100) +
       Math.floor(y / 400)) %
     7
-  );
+  )
 }
 
 /**
@@ -63,18 +63,13 @@ export function weekday(y: number, m: number, d: number): number {
  * @returns 星期几（0=周六, 1=周日, ..., 6=周五）
  */
 export function weekdayJulian(y: number, m: number, d: number): number {
-  const adjustedY = m < 3 ? y - 1 : y;
-  const adjustedD = d + adjustedY;
+  const adjustedY = m < 3 ? y - 1 : y
+  const adjustedD = d + adjustedY
   if (m < 3) {
-    m += 12;
-    y--;
+    m += 12
+    y--
   }
   return (
-    (adjustedD +
-      Math.floor((13 * (m + 1)) / 5) +
-      adjustedY +
-      Math.floor(adjustedY / 4) +
-      5) %
-    7
-  );
+    (adjustedD + Math.floor((13 * (m + 1)) / 5) + adjustedY + Math.floor(adjustedY / 4) + 5) % 7
+  )
 }

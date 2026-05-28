@@ -387,6 +387,84 @@ function InfiniteList({ items, onLoadMore }) {
 - `className`: CSS class name for the wrapper element.
 - `style`: Inline styles for the wrapper element.
 
+#### `<Repeat>` (v1.3.13+)
+
+A declarative repeat-render component, commonly used for skeleton screens and placeholders.
+
+```tsx
+import { Repeat } from "@wwog/react";
+
+function SkeletonList() {
+  return (
+    <Repeat times={5}>
+      {(i) => <SkeletonItem key={i} />}
+    </Repeat>
+  );
+}
+```
+
+- `times`: Number of times to repeat. Renders nothing when `<= 0`.
+- `children`: Render function receiving the current 0-based index.
+
+#### `<Portal>` (v1.3.13+)
+
+A declarative `createPortal` wrapper that renders children into a specified DOM node. Handles SSR safely by deferring mount until the client is ready.
+
+```tsx
+import { Portal } from "@wwog/react";
+
+// Render into document.body (default)
+function Modal({ children }) {
+  return <Portal>{children}</Portal>;
+}
+
+// Render into a specific element
+function Tooltip({ children }) {
+  return (
+    <Portal to={document.getElementById("overlay-root")}>
+      {children}
+    </Portal>
+  );
+}
+
+// Disable portal and render inline
+function ConditionalPortal({ usePortal, children }) {
+  return <Portal disabled={!usePortal}>{children}</Portal>;
+}
+```
+
+- `to`: Target DOM element to mount into. Defaults to `document.body`.
+- `disabled`: When `true`, renders children inline without a portal. Defaults to `false`.
+- `children`: Child elements to render into the portal.
+
+#### `<Boundary>` (v1.3.13+)
+
+A declarative Error Boundary wrapper with render-prop fallback and reset capability.
+
+```tsx
+import { Boundary } from "@wwog/react";
+
+function App() {
+  return (
+    <Boundary
+      fallback={(error, reset) => (
+        <div>
+          <p>Something went wrong: {error.message}</p>
+          <button onClick={reset}>Retry</button>
+        </div>
+      )}
+      onError={(error, info) => reportError(error, info)}
+    >
+      <RiskyComponent />
+    </Boundary>
+  );
+}
+```
+
+- `fallback`: Render function called when an error is caught. Receives `(error: Error, reset: () => void)`.
+- `onError`: Optional callback for error reporting (e.g. logging to Sentry).
+- `children`: Child elements to protect.
+
 #### `<SizeBox>`
 
 Create a fixed-size container for layout adjustment and spacing control.

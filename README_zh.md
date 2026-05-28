@@ -393,6 +393,84 @@ function InfiniteList({ items, onLoadMore }) {
 - `className`：包装元素的 CSS 类名。
 - `style`：包装元素的内联样式。
 
+#### `<Repeat>` (v1.3.13+)
+
+声明式重复渲染组件，常用于骨架屏、占位符等场景。
+
+```tsx
+import { Repeat } from "@wwog/react";
+
+function SkeletonList() {
+  return (
+    <Repeat times={5}>
+      {(i) => <SkeletonItem key={i} />}
+    </Repeat>
+  );
+}
+```
+
+- `times`：重复次数，`<= 0` 时不渲染任何内容。
+- `children`：渲染函数，接收当前从 0 开始的索引。
+
+#### `<Portal>` (v1.3.13+)
+
+声明式 `createPortal` 封装，将子元素渲染到指定 DOM 节点。在 SSR 环境下安全处理，延迟到客户端挂载后再渲染。
+
+```tsx
+import { Portal } from "@wwog/react";
+
+// 渲染到 document.body（默认）
+function Modal({ children }) {
+  return <Portal>{children}</Portal>;
+}
+
+// 渲染到指定元素
+function Tooltip({ children }) {
+  return (
+    <Portal to={document.getElementById("overlay-root")}>
+      {children}
+    </Portal>
+  );
+}
+
+// 禁用 portal，内联渲染
+function ConditionalPortal({ usePortal, children }) {
+  return <Portal disabled={!usePortal}>{children}</Portal>;
+}
+```
+
+- `to`：挂载目标 DOM 元素，默认为 `document.body`。
+- `disabled`：为 `true` 时直接内联渲染，不使用 portal。默认为 `false`。
+- `children`：要渲染到 portal 中的子元素。
+
+#### `<Boundary>` (v1.3.13+)
+
+Error Boundary 的声明式封装，通过 render prop 提供降级 UI 和重置能力。
+
+```tsx
+import { Boundary } from "@wwog/react";
+
+function App() {
+  return (
+    <Boundary
+      fallback={(error, reset) => (
+        <div>
+          <p>出错了：{error.message}</p>
+          <button onClick={reset}>重试</button>
+        </div>
+      )}
+      onError={(error, info) => reportError(error, info)}
+    >
+      <RiskyComponent />
+    </Boundary>
+  );
+}
+```
+
+- `fallback`：捕获到错误时调用的渲染函数，接收 `(error: Error, reset: () => void)`。
+- `onError`：可选的错误回调，用于上报日志（如 Sentry）。
+- `children`：需要保护的子元素。
+
 #### `<SizeBox>`
 
 创建固定尺寸的容器，用于布局调整和间距控制。
