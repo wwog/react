@@ -649,6 +649,7 @@ const result = ruleChecker(registrationData, rules);
 
 > v1.2.21: Refactor the API to move sideeffects into options and enhance support for the transform interface
 > v1.2.13: add useGetter
+> Breaking: `sideEffect` replaced by `onSet` and `onChange` for clearer callback semantics
 
 > A lightweight external state management utility that allows you to create and manage state outside the React component tree while maintaining perfect integration with components.
 
@@ -656,12 +657,18 @@ const result = ruleChecker(registrationData, rules);
 
 > Extends from createExternalState and uses storage to persist state, supports `localStorage` and `sessionStorage`
 
+- `createStorageState<T>(key, initialState, options?)`: Creates persisted state
+  - `options.onSet`: Invoked on every `set()` (storage write happens first, then the user callback)
+  - `options.onChange`: Invoked only when the value actually changes
+  - `options.storageType`: `'local'` | `'session'`, defaults to `'local'`
+  - `options.transform`: Same as `createExternalState`
+
 ```tsx
 import { createExternalState } from "@wwog/react";
 
 // Create a global theme state
 const themeState = createExternalState("light", {
-  sideEffect: (newTheme, oldTheme) => {
+  onChange: (newTheme, oldTheme) => {
     console.log(`Theme changed from ${oldTheme} to ${newTheme}`);
   },
 });
@@ -695,14 +702,17 @@ function ReadOnlyThemeConsumer() {
 - `createExternalState<T>(initialState, options?)`: Creates a state accessible outside components
 
   - `initialState`: Initial state value
-  - `options.sideEffect`: Optional side effect function, called on state updates
+  - `options.onSet`: Optional callback invoked on every `set()` call, even when the value is unchanged
+  - `options.onChange`: Optional callback invoked only when the stored value actually changes (compared via `Object.is`)
+  - Both callbacks receive `(newState, prevState)` as the raw internal values (type `T`, before `transform.get`)
   - Returns an object with methods:
     - `get()`: Get the current state value
     - `set(newState)`: Update the state value
     - `use()`: React Hook, returns `[state, setState]` for using this state in components
     - `useGetter()`: React Hook that only returns the state value, useful when you only need to read the state
   - `options.transform`: - `get` - `set`
-    Use cases:
+
+  Use cases:
 
 - Global state management (themes, user settings, etc.)
 - Cross-component communication

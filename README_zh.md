@@ -658,15 +658,16 @@ const result = ruleChecker(registrationData, rules);
 
 > v1.2.21: 重构 API，将 sideEffect 移至 options 对象中，增强 transform 接口支持
 > v1.2.13: 新增 useGetter
+> Breaking: `sideEffect` 已替换为 `onSet` 和 `onChange`，语义更清晰
 
 ```tsx
 import { createExternalState } from "@wwog/react";
 
 // 创建一个全局主题状态
-const themeState = createExternalState("light", options:{
-  sideEffect:(newTheme, oldTheme) => {
+const themeState = createExternalState("light", {
+  onChange: (newTheme, oldTheme) => {
     console.log(`主题从 ${oldTheme} 变更为 ${newTheme}`);
-  }
+  },
 });
 
 // 在任何位置获取或修改状态
@@ -697,7 +698,9 @@ function ReadOnlyThemeConsumer() {
 
 - `createExternalState<T>(initialState, options?)`: 创建一个可在组件外部访问的状态
   - `initialState`: 初始状态值
-  - `options.sideEffect`: 可选的副作用函数，在状态更新时调用
+  - `options.onSet`: 可选回调，每次调用 `set()` 后触发，即使值未发生变化
+  - `options.onChange`: 可选回调，仅在内部存储值实际发生变化时触发（通过 `Object.is` 比较）
+  - 两个回调均接收 `(newState, prevState)`，为内部原始值（类型 `T`，未经 `transform.get` 转换）
   - 返回包含以下方法的对象:
     - `get()`: 获取当前状态值
     - `set(newState)`: 更新状态值
@@ -716,7 +719,13 @@ function ReadOnlyThemeConsumer() {
 
 #### `createStorageState` (v1.3.2+)
 
-> 扩展自`createExternalState`，使用 storage 持久化状态,支持`localStorage`和`sessionStorage`
+> 扩展自 `createExternalState`，使用 storage 持久化状态，支持 `localStorage` 和 `sessionStorage`
+
+- `createStorageState<T>(key, initialState, options?)`: 创建持久化状态
+  - `options.onSet`: 每次 `set()` 后触发（持久化写入在此阶段完成，之后调用用户回调）
+  - `options.onChange`: 仅在值实际变化时触发
+  - `options.storageType`: `'local'` | `'session'`，默认 `'local'`
+  - `options.transform`: 同 `createExternalState`
 
 #### `formatDate`
 

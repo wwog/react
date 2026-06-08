@@ -120,30 +120,49 @@ describe("createExternalState", () => {
     expect(state.__listeners.length).toBe(0);
   });
 
-  it("测试副作用函数", () => {
-    const mockSideEffect = vi.fn((...args) => void 0);
+  it("测试 onSet 每次 set 都会触发", () => {
+    const mockOnSet = vi.fn((...args) => void 0);
     const initialState: string = "initial";
     const state = createExternalState(initialState, {
-      sideEffect: mockSideEffect,
+      onSet: mockOnSet,
     });
     state.set("updated");
-    expect(mockSideEffect).toHaveBeenCalledTimes(1);
-    expect(mockSideEffect).toHaveBeenCalledWith("updated", initialState);
+    expect(mockOnSet).toHaveBeenCalledTimes(1);
+    expect(mockOnSet).toHaveBeenCalledWith("updated", initialState);
+    state.set("updated");
+    expect(mockOnSet).toHaveBeenCalledTimes(2);
+    expect(mockOnSet).toHaveBeenCalledWith("updated", "updated");
     state.set("updated2");
-    expect(mockSideEffect).toHaveBeenCalledTimes(2);
-    expect(mockSideEffect).toHaveBeenCalledWith("updated2", "updated");
+    expect(mockOnSet).toHaveBeenCalledTimes(3);
+    expect(mockOnSet).toHaveBeenCalledWith("updated2", "updated");
   });
 
-  it("测试异步副作用函数", async () => {
-    const mockAsyncSideEffect = vi.fn().mockResolvedValue(undefined);
+  it("测试 onChange 仅在值变化时触发", () => {
+    const mockOnChange = vi.fn((...args) => void 0);
     const initialState: string = "initial";
     const state = createExternalState(initialState, {
-      sideEffect: mockAsyncSideEffect,
+      onChange: mockOnChange,
+    });
+    state.set("updated");
+    expect(mockOnChange).toHaveBeenCalledTimes(1);
+    expect(mockOnChange).toHaveBeenCalledWith("updated", initialState);
+    state.set("updated");
+    expect(mockOnChange).toHaveBeenCalledTimes(1);
+    state.set("updated2");
+    expect(mockOnChange).toHaveBeenCalledTimes(2);
+    expect(mockOnChange).toHaveBeenCalledWith("updated2", "updated");
+  });
+
+  it("测试异步 onSet 回调", async () => {
+    const mockAsyncOnSet = vi.fn().mockResolvedValue(undefined);
+    const initialState: string = "initial";
+    const state = createExternalState(initialState, {
+      onSet: mockAsyncOnSet,
     });
 
     state.set("updated");
-    expect(mockAsyncSideEffect).toHaveBeenCalledTimes(1);
-    expect(mockAsyncSideEffect).toHaveBeenCalledWith("updated", initialState);
+    expect(mockAsyncOnSet).toHaveBeenCalledTimes(1);
+    expect(mockAsyncOnSet).toHaveBeenCalledWith("updated", initialState);
   });
 
   it("测试复杂数据类型", async () => {
@@ -321,17 +340,17 @@ describe("createStorageState", () => {
     consoleSpy.mockRestore();
   });
 
-  it("测试存储副作用函数", () => {
-    const mockSideEffect = vi.fn();
+  it("测试存储 onSet 回调", () => {
+    const mockOnSet = vi.fn();
     const state = createStorageState("test-key", "initial" as string, {
       storageType: "local",
-      sideEffect: mockSideEffect,
+      onSet: mockOnSet,
     });
     
     state.set("updated");
     
-    expect(mockSideEffect).toHaveBeenCalledTimes(1);
-    expect(mockSideEffect).toHaveBeenCalledWith("updated");
+    expect(mockOnSet).toHaveBeenCalledTimes(1);
+    expect(mockOnSet).toHaveBeenCalledWith("updated", "initial");
     expect(localStorage.getItem("test-key")).toBe('"updated"');
   });
 

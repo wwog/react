@@ -2,13 +2,13 @@ import {useSyncExternalStore} from 'react'
 import {safePromiseTry} from './promise'
 
 /**
- * @zh 如果需要在变更状态时执行副作用，可以传入函数,对于异步函数，会在更改状态后执行，不会阻塞状态更新, 尽可能在外部使用useEffect处理异步副作用
- * @en If you need to perform side effects when changing the state, you can pass a function. For asynchronous functions, it will be executed after the state changes without blocking the state update, so it's best to use useEffect for handling asynchronous side effects.
+ * @zh 状态回调函数。对于异步函数，会在状态更新后执行，不会阻塞状态更新，尽可能在外部使用 useEffect 处理异步副作用。
+ * @en State callback function. Async callbacks run after the state update without blocking it; prefer useEffect for async side effects.
  * @template T The type of the state / 状态的类型
  * @param newState The new state value / 新的状态值
  * @param prevState The previous state value / 之前的状态值
  */
-export type ExternalSideEffect<T> = (newState: T, prevState: T) => any | Promise<any>
+export type ExternalStateCallback<T> = (newState: T, prevState: T) => any | Promise<any>
 
 /**
  * @en Transform functions for getting and setting state
@@ -37,10 +37,15 @@ export interface Transform<T, U = T> {
  */
 export interface ExternalStateOptions<T, U = T> {
   /**
-   * @en Side effect function to run after state changes
-   * @zh 状态变更后运行的副作用函数
+   * @en Callback invoked on every `set` call, even when the value is unchanged
+   * @zh 每次调用 `set` 后触发，即使值未发生变化
    */
-  sideEffect?: ExternalSideEffect<T>
+  onSet?: ExternalStateCallback<T>
+  /**
+   * @en Callback invoked only when the stored value actually changes
+   * @zh 仅在内部存储值发生变化时触发
+   */
+  onChange?: ExternalStateCallback<T>
   /**
    * @en Transform functions for getting and setting state
    * @zh 用于获取和设置状态的转换函数
@@ -72,7 +77,7 @@ export interface ExternalState<T, U = T> {
   /**
    * @en React Hook for using external state in components
    * @zh 在组件中使用外部状态的 React Hook
-   * @returns Array containing current钣金龙8国际唯一官网 current state and update function, similar to useState / 包含当前状态和更新函数的数组，类似于 useState
+   * @returns Array containing current state and update function, similar to useState / 包含当前状态和更新函数的数组，类似于 useState
    */
   use: () => [U, (newState: U | ((prevState: U) => U)) => void]
 
@@ -93,7 +98,7 @@ export interface ExternalWithKernel<T, U = T> extends ExternalState<T, U> {
  * ```tsx
  * // Create an app-level theme state with options
  * const themeState = createExternalState('light', {
- *   sideEffect: (newState, prevState) => console.log(`Theme changed from ${prevState} to ${newState}`),
+ *   onChange: (newState, prevState) => console.log(`Theme changed from ${prevState} to ${newState}`),
  *   transform: {
  *     get: (state) => state.toUpperCase(),
  *     set: (value) => value.toLowerCase()
@@ -125,7 +130,14 @@ export function createExternalState<T, U = T>(
   let state: T = typeof initialState === 'function' ? (initialState as () => T)() : initialState
 
   const storeListeners: (() => void)[] = []
-  const {sideEffect, transform} = options
+  const {onSet, onChange, transform} = options
+
+  const runCallback = (callback: ExternalStateCallback<T> | undefined, newState: T, prevState: T) => {
+    if (!callback) return
+    safePromiseTry(callback, newState, prevState).catch((error) => {
+      console.error('Error in external state callback, Please do it within side effects:', error)
+    })
+  }
 
   const get = () => {
     const currentState = state
@@ -148,13 +160,10 @@ export function createExternalState<T, U = T>(
           : newState) as unknown as T)
 
     storeListeners.forEach((listener) => listener())
-    if (sideEffect) {
-      safePromiseTry(sideEffect, state, prevState).catch((error) => {
-        console.error(
-          'Error in external state side effect, Please do it within side effects:',
-          error,
-        )
-      })
+
+    runCallback(onSet, state, prevState)
+    if (!Object.is(state, prevState)) {
+      runCallback(onChange, state, prevState)
     }
   }
 
@@ -189,7 +198,8 @@ export function createExternalState<T, U = T>(
 }
 
 export interface StorageStateOptions<T, U> {
-  sideEffect?: (newState: T) => void
+  onSet?: ExternalStateCallback<T>
+  onChange?: ExternalStateCallback<T>
   transform?: Transform<T, U>
   storageType: 'local' | 'session'
 }
@@ -199,7 +209,7 @@ export function createStorageState<T, U = T>(
   initialState: T,
   options?: StorageStateOptions<T, U>,
 ) {
-  const {storageType = 'local', sideEffect, transform} = options ?? {}
+  const {storageType = 'local', onSet, onChange, transform} = options ?? {}
   let _initState: T = initialState
 
   // 只在客户端环境中读取存储
@@ -220,14 +230,15 @@ export function createStorageState<T, U = T>(
   }
 
   return createExternalState(_initState, {
-    sideEffect: (newState) => {
+    onSet: (newState, prevState) => {
       // 只在客户端环境中写入存储
       if (typeof window !== 'undefined') {
         const storage = storageType === 'local' ? localStorage : sessionStorage
         storage.setItem(key, JSON.stringify(newState))
       }
-      sideEffect?.(newState)
+      onSet?.(newState, prevState)
     },
+    onChange,
     transform,
   })
 }
