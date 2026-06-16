@@ -647,9 +647,19 @@ const result = ruleChecker(registrationData, rules);
 
 #### `createExternalState` (v1.2.9+, useGetter added in v1.2.13)
 
+> v1.3.14: Breaking: `use()` renamed to `useState()` for React 19 compiler compatibility (the compiler requires hook names to start with `use`; the old `use` method was misidentified as a non-hook)
 > v1.2.21: Refactor the API to move sideeffects into options and enhance support for the transform interface
 > v1.2.13: add useGetter
 > Breaking: `sideEffect` replaced by `onSet` and `onChange` for clearer callback semantics
+
+**Migration (v1.3.13 → v1.3.14)**
+
+```diff
+- const [theme, setTheme] = themeState.use();
++ const [theme, setTheme] = themeState.useState();
+```
+
+`useGetter()` is unchanged.
 
 > A lightweight external state management utility that allows you to create and manage state outside the React component tree while maintaining perfect integration with components.
 
@@ -679,7 +689,7 @@ themeState.set("dark");
 
 // Use the state in components
 function ThemeConsumer() {
-  const [theme, setTheme] = themeState.use();
+  const [theme, setTheme] = themeState.useState();
 
   return (
     <div className={theme}>
@@ -708,7 +718,7 @@ function ReadOnlyThemeConsumer() {
   - Returns an object with methods:
     - `get()`: Get the current state value
     - `set(newState)`: Update the state value
-    - `use()`: React Hook, returns `[state, setState]` for using this state in components
+    - `useState()`: React Hook, returns `[state, setState]` for using this state in components (same return shape as React `useState`)
     - `useGetter()`: React Hook that only returns the state value, useful when you only need to read the state
   - `options.transform`: - `get` - `set`
 

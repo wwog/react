@@ -46,6 +46,29 @@ describe("createExternalState", () => {
     expect(state.get()).toBe("updated");
   });
 
+  it("测试useState钩子在组件中使用", async () => {
+    const initialState = "initial";
+    const state = createExternalState(initialState);
+
+    function TestComponent() {
+      const [value, setValue] = state.useState();
+      return (
+        <div>
+          <span data-testid="value">{value}</span>
+          <button onClick={() => setValue("updated")}>Update</button>
+        </div>
+      );
+    }
+
+    const { getByTestId, getByText } = render(<TestComponent />);
+    const valueLocator = getByTestId("value");
+    const buttonLocator = getByText("Update");
+    expect(valueLocator.element().textContent).toBe(initialState);
+    await buttonLocator.click();
+    expect(valueLocator.element().textContent).toBe("updated");
+    expect(state.get()).toBe("updated");
+  });
+
   it("测试多个组件共享状态", async () => {
     const initialState = "initial";
     const state = createExternalState(initialState);

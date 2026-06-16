@@ -1,5 +1,5 @@
-import {useSyncExternalStore} from 'react'
-import {safePromiseTry} from './promise'
+import { useSyncExternalStore } from 'react'
+import { safePromiseTry } from './promise'
 
 /**
  * @zh 状态回调函数。对于异步函数，会在状态更新后执行，不会阻塞状态更新，尽可能在外部使用 useEffect 处理异步副作用。
@@ -74,12 +74,13 @@ export interface ExternalState<T, U = T> {
    */
   set: (newState: U | ((prevState: U) => U)) => void
 
+
   /**
-   * @en React Hook for using external state in components
-   * @zh 在组件中使用外部状态的 React Hook
-   * @returns Array containing current state and update function, similar to useState / 包含当前状态和更新函数的数组，类似于 useState
+   * @en React Hook for using external state in components.
+   * @zh 在组件中使用外部状态的 React Hook。
+   * @returns Array containing current state and update function, similar to React useState / 包含当前状态和更新函数的数组，类似于 React useState
    */
-  use: () => [U, (newState: U | ((prevState: U) => U)) => void]
+  useState: () => [U, (newState: U | ((prevState: U) => U)) => void]
 
   /**
    * @zh use的变体，只获取value.
@@ -111,7 +112,7 @@ export interface ExternalWithKernel<T, U = T> extends ExternalState<T, U> {
  *
  * // Use state in components
  * function ThemeConsumer() {
- *   const [theme, setTheme] = themeState.use();
+ *   const [theme, setTheme] = themeState.useState();
  *
  *   return (
  *     <div className={theme}>
@@ -130,9 +131,13 @@ export function createExternalState<T, U = T>(
   let state: T = typeof initialState === 'function' ? (initialState as () => T)() : initialState
 
   const storeListeners: (() => void)[] = []
-  const {onSet, onChange, transform} = options
+  const { onSet, onChange, transform } = options
 
-  const runCallback = (callback: ExternalStateCallback<T> | undefined, newState: T, prevState: T) => {
+  const runCallback = (
+    callback: ExternalStateCallback<T> | undefined,
+    newState: T,
+    prevState: T,
+  ) => {
     if (!callback) return
     safePromiseTry(callback, newState, prevState).catch((error) => {
       console.error('Error in external state callback, Please do it within side effects:', error)
@@ -151,13 +156,13 @@ export function createExternalState<T, U = T>(
       : (prevState as unknown as U)
     state = transform?.set
       ? transform.set(
-          typeof newState === 'function'
-            ? (newState as (prev: U) => U)(transformedPrevState)
-            : newState,
-        )
-      : ((typeof newState === 'function'
+        typeof newState === 'function'
           ? (newState as (prev: U) => U)(transformedPrevState)
-          : newState) as unknown as T)
+          : newState,
+      )
+      : ((typeof newState === 'function'
+        ? (newState as (prev: U) => U)(transformedPrevState)
+        : newState) as unknown as T)
 
     storeListeners.forEach((listener) => listener())
 
@@ -167,7 +172,7 @@ export function createExternalState<T, U = T>(
     }
   }
 
-  const use = () => {
+  const useState = () => {
     const localState = useSyncExternalStore(
       (onStoreChange) => {
         storeListeners.push(onStoreChange)
@@ -188,13 +193,14 @@ export function createExternalState<T, U = T>(
     ]
   }
 
+
   const useGetter = () => {
-    const [value] = use()
+    const [value] = useState()
     return value
   }
 
   //@ts-expect-error ignore
-  return {get, set, use, useGetter, __listeners: storeListeners}
+  return { get, set, useState, useGetter, __listeners: storeListeners }
 }
 
 export interface StorageStateOptions<T, U> {
@@ -209,7 +215,7 @@ export function createStorageState<T, U = T>(
   initialState: T,
   options?: StorageStateOptions<T, U>,
 ) {
-  const {storageType = 'local', onSet, onChange, transform} = options ?? {}
+  const { storageType = 'local', onSet, onChange, transform } = options ?? {}
   let _initState: T = initialState
 
   // 只在客户端环境中读取存储

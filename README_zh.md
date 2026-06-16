@@ -656,9 +656,19 @@ const result = ruleChecker(registrationData, rules);
 
 一个轻量级的外部状态管理工具，让你可以在 React 组件树外部创建和管理状态，同时保持与组件的完美集成。
 
+> v1.3.14: Breaking: `use()` 重命名为 `useState()`，以兼容 React 19 编译器对 Hook 命名的识别规则（编译器要求 Hook 名称以 `use` 开头，原 `use` 方法会被误判为非 Hook）
 > v1.2.21: 重构 API，将 sideEffect 移至 options 对象中，增强 transform 接口支持
 > v1.2.13: 新增 useGetter
 > Breaking: `sideEffect` 已替换为 `onSet` 和 `onChange`，语义更清晰
+
+**迁移（v1.3.13 → v1.3.14）**
+
+```diff
+- const [theme, setTheme] = themeState.use();
++ const [theme, setTheme] = themeState.useState();
+```
+
+`useGetter()` 无变化。
 
 ```tsx
 import { createExternalState } from "@wwog/react";
@@ -676,7 +686,7 @@ themeState.set("dark");
 
 // 在组件中使用状态
 function ThemeConsumer() {
-  const [theme, setTheme] = themeState.use();
+  const [theme, setTheme] = themeState.useState();
 
   return (
     <div className={theme}>
@@ -704,7 +714,7 @@ function ReadOnlyThemeConsumer() {
   - 返回包含以下方法的对象:
     - `get()`: 获取当前状态值
     - `set(newState)`: 更新状态值
-    - `use()`: React Hook，返回 `[state, setState]`，用于在组件中使用此状态
+    - `useState()`: React Hook，返回 `[state, setState]`，用于在组件中使用此状态（API 与 React `useState` 返回值一致）
     - `useGetter()`: React Hook，仅返回状态值，当你只需要读取状态时非常有用
   - `options.transform`:
     - `get`
