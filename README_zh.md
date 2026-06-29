@@ -471,6 +471,49 @@ function App() {
 - `onError`：可选的错误回调，用于上报日志（如 Sentry）。
 - `children`：需要保护的子元素。
 
+#### `<FocusTrap>` (v1.4.0+)
+
+焦点陷阱组件，将键盘焦点循环限制在容器内的可聚焦元素中，支持自定义按键映射和导航逻辑。
+
+```tsx
+import { FocusTrap } from "@wwog/react";
+
+// 默认 Tab 劫持
+<FocusTrap>
+  <input />
+  <button>保存</button>
+</FocusTrap>
+
+// 方向键导航
+<FocusTrap keyMap={{ ArrowDown: "next", ArrowUp: "prev" }}>
+  <div>
+    <button>项目 1</button>
+    <button>项目 2</button>
+  </div>
+</FocusTrap>
+
+// 跨列表导航 — 多个列表的元素被合并为单一焦点顺序
+<FocusTrap keyMap={{ ArrowDown: "next", ArrowUp: "prev" }}>
+  <div>
+    <h4>列表 A</h4>
+    <button>A-1</button>
+    <button>A-2</button>
+  </div>
+  <div>
+    <h4>列表 B</h4>
+    <button>B-1</button>
+    <button>B-2</button>
+  </div>
+</FocusTrap>
+```
+
+- `keyMap`：自定义按键到方向的映射。默认 `{ Tab: "next" }`（Shift+Tab 自动映射为 `"prev"`）。例如 `{ ArrowDown: "next", ArrowUp: "prev" }`。
+- `onNavigate`：自定义焦点解析函数——返回要聚焦的元素，或 `null` 使用默认循环行为。
+- `autoFocus`：挂载时自动聚焦第一个 tabbable 元素。
+- `restoreFocus`：卸载时恢复焦点到之前聚焦的元素。
+- `disabled`：临时禁用焦点劫持。
+- `focusableOptions`：传递给 `getTabbableElements` 的选项（如 `{ includeContainer: true }`）。
+
 #### `<SizeBox>`
 
 创建固定尺寸的容器，用于布局调整和间距控制。

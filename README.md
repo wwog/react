@@ -465,6 +465,50 @@ function App() {
 - `onError`: Optional callback for error reporting (e.g. logging to Sentry).
 - `children`: Child elements to protect.
 
+#### `<FocusTrap>` (v1.4.0+)
+
+A focus trap component that constrains keyboard focus cycling to focusable elements within a container, with support for custom key mappings and navigation logic.
+
+```tsx
+import { FocusTrap } from "@wwog/react";
+
+// Default Tab trapping
+<FocusTrap>
+  <input />
+  <button>Save</button>
+</FocusTrap>
+
+// Arrow key navigation
+<FocusTrap keyMap={{ ArrowDown: "next", ArrowUp: "prev" }}>
+  <div>
+    <button>Item 1</button>
+    <button>Item 2</button>
+  </div>
+</FocusTrap>
+
+// Cross-list navigation — items from multiple lists
+// seamlessly cross in a single focus order
+<FocusTrap keyMap={{ ArrowDown: "next", ArrowUp: "prev" }}>
+  <div>
+    <h4>List A</h4>
+    <button>A-1</button>
+    <button>A-2</button>
+  </div>
+  <div>
+    <h4>List B</h4>
+    <button>B-1</button>
+    <button>B-2</button>
+  </div>
+</FocusTrap>
+```
+
+- `keyMap`: Custom key-to-direction mapping. Default `{ Tab: "next" }` (Shift+Tab auto-maps to `"prev"`). Example: `{ ArrowDown: "next", ArrowUp: "prev" }`.
+- `onNavigate`: Custom focus resolution — return the element to focus, or `null` to use default cycling.
+- `autoFocus`: Auto-focus the first tabbable element on mount.
+- `restoreFocus`: Restore focus to the previously focused element on unmount.
+- `disabled`: Temporarily disable the trap.
+- `focusableOptions`: Options passed to `getTabbableElements` (e.g. `{ includeContainer: true }`).
+
 #### `<SizeBox>`
 
 Create a fixed-size container for layout adjustment and spacing control.
