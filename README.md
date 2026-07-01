@@ -690,7 +690,7 @@ const result = ruleChecker(registrationData, rules);
 ```
 
 #### `createExternalState` (v1.2.9+, useGetter added in v1.2.13)
-
+> v1.4.2: Remove transform options
 > v1.3.14: Breaking: `use()` renamed to `useState()` for React 19 compiler compatibility (the compiler requires hook names to start with `use`; the old `use` method was misidentified as a non-hook)
 > v1.2.21: Refactor the API to move sideeffects into options and enhance support for the transform interface
 > v1.2.13: add useGetter
@@ -715,7 +715,6 @@ const result = ruleChecker(registrationData, rules);
   - `options.onSet`: Invoked on every `set()` (storage write happens first, then the user callback)
   - `options.onChange`: Invoked only when the value actually changes
   - `options.storageType`: `'local'` | `'session'`, defaults to `'local'`
-  - `options.transform`: Same as `createExternalState`
 
 ```tsx
 import { createExternalState } from "@wwog/react";
@@ -758,13 +757,11 @@ function ReadOnlyThemeConsumer() {
   - `initialState`: Initial state value
   - `options.onSet`: Optional callback invoked on every `set()` call, even when the value is unchanged
   - `options.onChange`: Optional callback invoked only when the stored value actually changes (compared via `Object.is`)
-  - Both callbacks receive `(newState, prevState)` as the raw internal values (type `T`, before `transform.get`)
   - Returns an object with methods:
     - `get()`: Get the current state value
     - `set(newState)`: Update the state value
     - `useState()`: React Hook, returns `[state, setState]` for using this state in components (same return shape as React `useState`)
     - `useGetter()`: React Hook that only returns the state value, useful when you only need to read the state
-  - `options.transform`: - `get` - `set`
 
   Use cases:
 

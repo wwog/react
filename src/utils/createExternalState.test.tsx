@@ -227,39 +227,6 @@ describe("createExternalState", () => {
     expect(ageLocator.element().textContent).toBe("35");
     expect(state.get()).toEqual({ name: "王五", age: 35 });
   });
-
-  it("测试transform转换功能", async () => {
-    const state = createExternalState("hello", {
-      transform: {
-        get: (str) => str.toUpperCase(),
-        set: (str) => str.toLowerCase(),
-      },
-    });
-
-    expect(state.get()).toBe("HELLO");
-
-    state.set("WORLD");
-    expect(state.get()).toBe("WORLD");
-
-    function TestComponent() {
-      const [value, setValue] = state.use();
-      return (
-        <div>
-          <span data-testid="value">{value}</span>
-          <button data-testid="update" onClick={() => setValue("TEST")}>
-            Update
-          </button>
-        </div>
-      );
-    }
-
-    const { getByTestId } = render(<TestComponent />);
-    expect(getByTestId("value").element().textContent).toBe("WORLD");
-
-    await getByTestId("update").click();
-    expect(getByTestId("value").element().textContent).toBe("TEST");
-    expect(state.get()).toBe("TEST");
-  });
 });
 
 describe("createStorageState", () => {
@@ -282,7 +249,7 @@ describe("createStorageState", () => {
     const state = createStorageState("test-key", "initial", {
       storageType: "local",
     });
-    
+
     state.set("updated");
     expect(state.get()).toBe("updated");
     expect(localStorage.getItem("test-key")).toBe('"updated"');
@@ -291,11 +258,11 @@ describe("createStorageState", () => {
   it("测试从localStorage恢复状态", () => {
     // 预先设置localStorage值
     localStorage.setItem("test-key", '"stored-value"');
-    
+
     const state = createStorageState("test-key", "initial", {
       storageType: "local",
     });
-    
+
     expect(state.get()).toBe("stored-value");
   });
 
@@ -303,7 +270,7 @@ describe("createStorageState", () => {
     const state = createStorageState("test-key", "initial", {
       storageType: "session",
     });
-    
+
     state.set("session-updated");
     expect(state.get()).toBe("session-updated");
     expect(sessionStorage.getItem("test-key")).toBe('"session-updated"');
@@ -312,11 +279,11 @@ describe("createStorageState", () => {
   it("测试从sessionStorage恢复状态", () => {
     // 预先设置sessionStorage值
     sessionStorage.setItem("test-key", '"session-stored"');
-    
+
     const state = createStorageState("test-key", "initial", {
       storageType: "session",
     });
-    
+
     expect(state.get()).toBe("session-stored");
   });
 
@@ -325,18 +292,18 @@ describe("createStorageState", () => {
       name: string;
       age: number;
     }
-    
+
     const initialUser: User = { name: "张三", age: 25 };
     const state = createStorageState<User>("user-key", initialUser, {
       storageType: "local",
     });
-    
+
     const updatedUser: User = { name: "李四", age: 30 };
     state.set(updatedUser);
-    
+
     expect(state.get()).toEqual(updatedUser);
     expect(JSON.parse(localStorage.getItem("user-key")!)).toEqual(updatedUser);
-    
+
     // 创建新实例验证恢复
     const newState = createStorageState<User>("user-key", initialUser, {
       storageType: "local",
@@ -346,20 +313,20 @@ describe("createStorageState", () => {
 
   it("测试存储解析错误处理", () => {
     const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    
+
     // 设置无效的JSON数据
     localStorage.setItem("test-key", "invalid-json");
-    
+
     const state = createStorageState("test-key", "fallback", {
       storageType: "local",
     });
-    
+
     expect(state.get()).toBe("fallback");
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to parse localStorage value for key "test-key"'),
       expect.any(Error)
     );
-    
+
     consoleSpy.mockRestore();
   });
 
@@ -369,35 +336,19 @@ describe("createStorageState", () => {
       storageType: "local",
       onSet: mockOnSet,
     });
-    
+
     state.set("updated");
-    
+
     expect(mockOnSet).toHaveBeenCalledTimes(1);
     expect(mockOnSet).toHaveBeenCalledWith("updated", "initial");
     expect(localStorage.getItem("test-key")).toBe('"updated"');
-  });
-
-  it("测试存储状态的transform功能", () => {
-    const state = createStorageState("test-key", "hello", {
-      storageType: "local",
-      transform: {
-        get: (str) => str.toUpperCase(),
-        set: (str) => str.toLowerCase(),
-      },
-    });
-    
-    expect(state.get()).toBe("HELLO");
-    
-    state.set("WORLD");
-    expect(state.get()).toBe("WORLD");
-    expect(localStorage.getItem("test-key")).toBe('"world"');
   });
 
   it("测试存储状态在React组件中的使用", async () => {
     const state = createStorageState("component-key", "initial", {
       storageType: "local",
     });
-    
+
     function TestComponent() {
       const [value, setValue] = state.use();
       return (
@@ -407,15 +358,15 @@ describe("createStorageState", () => {
         </div>
       );
     }
-    
+
     const { getByTestId, getByText } = render(<TestComponent />);
     const valueLocator = getByTestId("value");
     const buttonLocator = getByText("Update");
-    
+
     expect(valueLocator.element().textContent).toBe("initial");
-    
+
     await buttonLocator.click();
-    
+
     expect(valueLocator.element().textContent).toBe("component-updated");
     expect(state.get()).toBe("component-updated");
     expect(localStorage.getItem("component-key")).toBe('"component-updated"');
@@ -423,9 +374,9 @@ describe("createStorageState", () => {
 
   it("测试默认storageType为local", () => {
     const state = createStorageState("default-key", "initial");
-    
+
     state.set("default-updated");
-    
+
     expect(localStorage.getItem("default-key")).toBe('"default-updated"');
     expect(sessionStorage.getItem("default-key")).toBeNull();
   });

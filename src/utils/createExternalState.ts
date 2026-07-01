@@ -11,31 +11,11 @@ import { safePromiseTry } from './promise'
 export type ExternalStateCallback<T> = (newState: T, prevState: T) => any | Promise<any>
 
 /**
- * @en Transform functions for getting and setting state
- * @zh 用于获取和设置状态的转换函数
- * @template T The type of the state / 状态的类型
- * @template U The transformed type for getting / 获取时的转换类型
- */
-export interface Transform<T, U = T> {
-  /**
-   * @en Transform function for getting state
-   * @zh 获取状态时的转换函数
-   */
-  get?: (state: T) => U
-  /**
-   * @en Transform function for setting state
-   * @zh 设置状态时的转换函数
-   */
-  set?: (value: U) => T
-}
-
-/**
  * @en Options for creating external state
  * @zh 创建外部状态的选项
  * @template T The type of the state / 状态的类型
- * @template U The transformed type for getting / 获取时的转换类型
  */
-export interface ExternalStateOptions<T, U = T> {
+export interface ExternalStateOptions<T> {
   /**
    * @en Callback invoked on every `set` call, even when the value is unchanged
    * @zh 每次调用 `set` 后触发，即使值未发生变化
@@ -46,33 +26,27 @@ export interface ExternalStateOptions<T, U = T> {
    * @zh 仅在内部存储值发生变化时触发
    */
   onChange?: ExternalStateCallback<T>
-  /**
-   * @en Transform functions for getting and setting state
-   * @zh 用于获取和设置状态的转换函数
-   */
-  transform?: Transform<T, U>
 }
 
 /**
  * @en External state management interface
  * @zh 外部状态管理接口
  * @template T The type of the state / 状态的类型
- * @template U The transformed type for getting / 获取时的转换类型
  */
-export interface ExternalState<T, U = T> {
+export interface ExternalState<T> {
   /**
    * @en Get the current state value
    * @zh 获取当前状态值
-   * @returns The current state value (transformed if transform.get is provided) / 当前状态值（如果提供了 transform.get 则进行转换）
+   * @returns The current state value / 当前状态值
    */
-  get: () => U
+  get: () => T
 
   /**
    * @en Set a new state value
    * @zh 设置新的状态值
    * @param newState The new state value or a function that returns it / 新的状态值或返回新状态的函数
    */
-  set: (newState: U | ((prevState: U) => U)) => void
+  set: (newState: T | ((prevState: T) => T)) => void
 
 
   /**
@@ -80,16 +54,16 @@ export interface ExternalState<T, U = T> {
    * @zh 在组件中使用外部状态的 React Hook。
    * @returns Array containing current state and update function, similar to React useState / 包含当前状态和更新函数的数组，类似于 React useState
    */
-  useState: () => [U, (newState: U | ((prevState: U) => U)) => void]
+  useState: () => [T, (newState: T | ((prevState: T) => T)) => void]
 
   /**
    * @zh use的变体，只获取value.
    * @en A variant of use that only gets the value.
    */
-  useGetter: () => U
+  useGetter: () => T
 }
 
-export interface ExternalWithKernel<T, U = T> extends ExternalState<T, U> {
+export interface ExternalWithKernel<T> extends ExternalState<T> {
   __listeners: (() => void)[]
 }
 
@@ -100,14 +74,10 @@ export interface ExternalWithKernel<T, U = T> extends ExternalState<T, U> {
  * // Create an app-level theme state with options
  * const themeState = createExternalState('light', {
  *   onChange: (newState, prevState) => console.log(`Theme changed from ${prevState} to ${newState}`),
- *   transform: {
- *     get: (state) => state.toUpperCase(),
- *     set: (value) => value.toLowerCase()
- *   }
  * });
  *
  * // Get or modify state outside components
- * console.log(themeState.get()); // 'LIGHT'
+ * console.log(themeState.get()); // 'light'
  * themeState.set((prev) => prev === 'light' ? 'dark' : 'light'); // Toggle theme
  *
  * // Use state in components
@@ -116,7 +86,7 @@ export interface ExternalWithKernel<T, U = T> extends ExternalState<T, U> {
  *
  *   return (
  *     <div className={theme}>
- *       <button onClick={() => setTheme((prev) => prev === 'LIGHT' ? 'DARK' : 'LIGHT')}>
+ *       <button onClick={() => setTheme((prev) => prev === 'light' ? 'dark' : 'light')}>
  *         Toggle theme / 切换主题
  *       </button>
  *     </div>
@@ -124,14 +94,14 @@ export interface ExternalWithKernel<T, U = T> extends ExternalState<T, U> {
  * }
  * ```
  */
-export function createExternalState<T, U = T>(
+export function createExternalState<T>(
   initialState: T | (() => T),
-  options: ExternalStateOptions<T, U> = {},
-): ExternalState<T, U> {
+  options: ExternalStateOptions<T> = {},
+): ExternalState<T> {
   let state: T = typeof initialState === 'function' ? (initialState as () => T)() : initialState
 
   const storeListeners: (() => void)[] = []
-  const { onSet, onChange, transform } = options
+  const { onSet, onChange } = options
 
   const runCallback = (
     callback: ExternalStateCallback<T> | undefined,
@@ -145,24 +115,14 @@ export function createExternalState<T, U = T>(
   }
 
   const get = () => {
-    const currentState = state
-    return transform?.get ? transform.get(currentState) : (currentState as unknown as U)
+    return state
   }
 
-  const set = (newState: U | ((prevState: U) => U)) => {
+  const set = (newState: T | ((prevState: T) => T)) => {
     const prevState = state
-    const transformedPrevState = transform?.get
-      ? transform.get(prevState)
-      : (prevState as unknown as U)
-    state = transform?.set
-      ? transform.set(
-        typeof newState === 'function'
-          ? (newState as (prev: U) => U)(transformedPrevState)
-          : newState,
-      )
-      : ((typeof newState === 'function'
-        ? (newState as (prev: U) => U)(transformedPrevState)
-        : newState) as unknown as T)
+    state = typeof newState === 'function'
+      ? (newState as (prev: T) => T)(prevState)
+      : newState
 
     storeListeners.forEach((listener) => listener())
 
@@ -187,9 +147,9 @@ export function createExternalState<T, U = T>(
       () => state,
     )
 
-    return [transform?.get ? transform.get(localState) : (localState as unknown as U), set] as [
-      U,
-      (newState: U | ((prevState: U) => U)) => void,
+    return [localState, set] as [
+      T,
+      (newState: T | ((prevState: T) => T)) => void,
     ]
   }
 
@@ -203,19 +163,18 @@ export function createExternalState<T, U = T>(
   return { get, set, useState, useGetter, __listeners: storeListeners }
 }
 
-export interface StorageStateOptions<T, U> {
+export interface StorageStateOptions<T> {
   onSet?: ExternalStateCallback<T>
   onChange?: ExternalStateCallback<T>
-  transform?: Transform<T, U>
   storageType: 'local' | 'session'
 }
 
-export function createStorageState<T, U = T>(
+export function createStorageState<T>(
   key: string,
   initialState: T,
-  options?: StorageStateOptions<T, U>,
+  options?: StorageStateOptions<T>,
 ) {
-  const { storageType = 'local', onSet, onChange, transform } = options ?? {}
+  const { storageType = 'local', onSet, onChange } = options ?? {}
   let _initState: T = initialState
 
   // 只在客户端环境中读取存储
@@ -245,6 +204,5 @@ export function createStorageState<T, U = T>(
       onSet?.(newState, prevState)
     },
     onChange,
-    transform,
   })
 }

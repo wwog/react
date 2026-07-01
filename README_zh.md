@@ -698,7 +698,7 @@ const result = ruleChecker(registrationData, rules);
 #### `createExternalState` (v1.2.9+)
 
 一个轻量级的外部状态管理工具，让你可以在 React 组件树外部创建和管理状态，同时保持与组件的完美集成。
-
+> v1.4.2: 删除 `transfrom` 选项
 > v1.3.14: Breaking: `use()` 重命名为 `useState()`，以兼容 React 19 编译器对 Hook 命名的识别规则（编译器要求 Hook 名称以 `use` 开头，原 `use` 方法会被误判为非 Hook）
 > v1.2.21: 重构 API，将 sideEffect 移至 options 对象中，增强 transform 接口支持
 > v1.2.13: 新增 useGetter
@@ -753,15 +753,6 @@ function ReadOnlyThemeConsumer() {
   - `initialState`: 初始状态值
   - `options.onSet`: 可选回调，每次调用 `set()` 后触发，即使值未发生变化
   - `options.onChange`: 可选回调，仅在内部存储值实际发生变化时触发（通过 `Object.is` 比较）
-  - 两个回调均接收 `(newState, prevState)`，为内部原始值（类型 `T`，未经 `transform.get` 转换）
-  - 返回包含以下方法的对象:
-    - `get()`: 获取当前状态值
-    - `set(newState)`: 更新状态值
-    - `useState()`: React Hook，返回 `[state, setState]`，用于在组件中使用此状态（API 与 React `useState` 返回值一致）
-    - `useGetter()`: React Hook，仅返回状态值，当你只需要读取状态时非常有用
-  - `options.transform`:
-    - `get`
-    - `set`
 
 适用场景:
 
@@ -778,7 +769,6 @@ function ReadOnlyThemeConsumer() {
   - `options.onSet`: 每次 `set()` 后触发（持久化写入在此阶段完成，之后调用用户回调）
   - `options.onChange`: 仅在值实际变化时触发
   - `options.storageType`: `'local'` | `'session'`，默认 `'local'`
-  - `options.transform`: 同 `createExternalState`
 
 #### `formatDate`
 
