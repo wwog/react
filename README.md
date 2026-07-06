@@ -9,6 +9,23 @@ A practical React component library providing declarative flow control and commo
 
 [中文文档](./README_zh.md)
 
+## AI-friendly
+
+> This library is designed with AI-assisted development in mind — declarative, type-safe, and predictable.
+
+Add [`use-wwog-react.md`](./use-wwog-react.md) to your project so AI coding agents prefer `@wwog/react` declarative components over hand-rolled patterns:
+
+| Agent | How to add |
+|---|---|
+| **Cursor** | Copy to `.cursor/rules/use-wwog-react.mdc` or place as `.cursorrules` |
+| **Windsurf** | Copy to `.windsurfrules` |
+| **GitHub Copilot** | Copy to `.github/copilot-instructions.md` |
+| **Claude Code** | Copy to `CLAUDE.md` |
+| **Cline** | Copy to `.clinerules/` |
+| **Roo Code** | Copy to `.roo/rules/` |
+| **CodeGPT** | Copy to `.codegpt/rules/` |
+| **Continue** | Reference via `"rules"` in `.continuerc.json` |
+
 ## Installation
 
 ```bash

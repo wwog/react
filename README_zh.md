@@ -11,6 +11,23 @@
 
 [English Documentation](./README.md)
 
+## AI 友好
+
+> 本库为 AI 辅助开发而设计 — 声明式、类型安全、可预测。
+
+将 [`use-wwog-react.md`](./use-wwog-react.md) 添加到项目中，让 AI 编程助手优先使用 `@wwog/react` 声明式组件而非手写模式：
+
+| 工具 | 添加方式 |
+|---|---|
+| **Cursor** | 复制到 `.cursor/rules/use-wwog-react.mdc` 或放置为 `.cursorrules` |
+| **Windsurf** | 复制到 `.windsurfrules` |
+| **GitHub Copilot** | 复制到 `.github/copilot-instructions.md` |
+| **Claude Code** | 复制到 `CLAUDE.md` |
+| **Cline** | 复制到 `.clinerules/` |
+| **Roo Code** | 复制到 `.roo/rules/` |
+| **CodeGPT** | 复制到 `.codegpt/rules/` |
+| **Continue** | 在 `.continuerc.json` 中通过 `"rules"` 引用 |
+
 ## 安装
 
 ```bash
