@@ -15,18 +15,14 @@
 
 > 本库为 AI 辅助开发而设计 — 声明式、类型安全、可预测。
 
-将 [`use-wwog-react.md`](./use-wwog-react.md) 添加到项目中，让 AI 编程助手优先使用 `@wwog/react` 声明式组件而非手写模式：
+[`use-wwog-react.md`](./use-wwog-react.md) 是一个 Claude Code **skill**(文件自带 `name` + `description` frontmatter)。安装后,Claude Code 会优先使用 `@wwog/react` 声明式组件而非手写模式:
 
-| 工具 | 添加方式 |
+| 范围 | 安装方式 |
 |---|---|
-| **Cursor** | 复制到 `.cursor/rules/use-wwog-react.mdc` 或放置为 `.cursorrules` |
-| **Windsurf** | 复制到 `.windsurfrules` |
-| **GitHub Copilot** | 复制到 `.github/copilot-instructions.md` |
-| **Claude Code** | 复制到 `CLAUDE.md` |
-| **Cline** | 复制到 `.clinerules/` |
-| **Roo Code** | 复制到 `.roo/rules/` |
-| **CodeGPT** | 复制到 `.codegpt/rules/` |
-| **Continue** | 在 `.continuerc.json` 中通过 `"rules"` 引用 |
+| **项目级**(团队共享) | 复制到 `.claude/skills/use-wwog-react/SKILL.md` |
+| **用户级**(你的所有项目) | 复制到 `~/.claude/skills/use-wwog-react/SKILL.md` |
+
+文件已包含合法的 skill frontmatter,无需额外配置,下次会话 Claude Code 会自动发现。
 
 ## 安装
 

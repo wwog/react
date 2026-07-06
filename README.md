@@ -13,18 +13,14 @@ A practical React component library providing declarative flow control and commo
 
 > This library is designed with AI-assisted development in mind — declarative, type-safe, and predictable.
 
-Add [`use-wwog-react.md`](./use-wwog-react.md) to your project so AI coding agents prefer `@wwog/react` declarative components over hand-rolled patterns:
+[`use-wwog-react.md`](./use-wwog-react.md) is a Claude Code **skill** (it ships with `name` + `description` frontmatter). Install it so Claude Code prefers `@wwog/react` declarative components over hand-rolled patterns:
 
-| Agent | How to add |
+| Scope | How to install |
 |---|---|
-| **Cursor** | Copy to `.cursor/rules/use-wwog-react.mdc` or place as `.cursorrules` |
-| **Windsurf** | Copy to `.windsurfrules` |
-| **GitHub Copilot** | Copy to `.github/copilot-instructions.md` |
-| **Claude Code** | Copy to `CLAUDE.md` |
-| **Cline** | Copy to `.clinerules/` |
-| **Roo Code** | Copy to `.roo/rules/` |
-| **CodeGPT** | Copy to `.codegpt/rules/` |
-| **Continue** | Reference via `"rules"` in `.continuerc.json` |
+| **Project** (shared with team) | Copy to `.claude/skills/use-wwog-react/SKILL.md` |
+| **User** (all your projects) | Copy to `~/.claude/skills/use-wwog-react/SKILL.md` |
+
+The file already contains valid skill frontmatter — no further configuration is needed; Claude Code auto-discovers it on the next session.
 
 ## Installation
 
