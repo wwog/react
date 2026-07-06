@@ -29,7 +29,6 @@ src/
     useScreen.ts      # 响应式断点 hook
   utils/
     createExternalState.ts  # 模块级外部状态管理
-    ruleChecker.ts          # 类型安全表单校验
     cx.ts                   # className 合并（类 clsx）
     sundry.ts               # formatDate, Counter
     promise.ts              # Promise.try / Promise.withResolvers polyfill
