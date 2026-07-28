@@ -1,7 +1,7 @@
-import { FocusTrapExample } from "./FocusTrapExample.tsx";
+import { AppStackExample } from "./AppStackExample.tsx";
 
 function App() {
-  return <FocusTrapExample />;
+  return <AppStackExample />;
 }
 
 export default App;

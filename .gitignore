@@ -5,3 +5,5 @@ dist
 .eslintcache
 *.log*
 *.env*
+.playwright-mcp
+.zcode

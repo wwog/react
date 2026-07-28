@@ -1,5 +1,5 @@
-import { useSyncExternalStore } from 'react'
-import { safePromiseTry } from './promise'
+import {useSyncExternalStore} from 'react'
+import {safePromiseTry} from './promise'
 
 /**
  * @zh 状态回调函数。对于异步函数，会在状态更新后执行，不会阻塞状态更新，尽可能在外部使用 useEffect 处理异步副作用。
@@ -47,7 +47,6 @@ export interface ExternalState<T> {
    * @param newState The new state value or a function that returns it / 新的状态值或返回新状态的函数
    */
   set: (newState: T | ((prevState: T) => T)) => void
-
 
   /**
    * @en React Hook for using external state in components.
@@ -101,7 +100,7 @@ export function createExternalState<T>(
   let state: T = typeof initialState === 'function' ? (initialState as () => T)() : initialState
 
   const storeListeners: (() => void)[] = []
-  const { onSet, onChange } = options
+  const {onSet, onChange} = options
 
   const runCallback = (
     callback: ExternalStateCallback<T> | undefined,
@@ -120,9 +119,7 @@ export function createExternalState<T>(
 
   const set = (newState: T | ((prevState: T) => T)) => {
     const prevState = state
-    state = typeof newState === 'function'
-      ? (newState as (prev: T) => T)(prevState)
-      : newState
+    state = typeof newState === 'function' ? (newState as (prev: T) => T)(prevState) : newState
 
     storeListeners.forEach((listener) => listener())
 
@@ -147,12 +144,8 @@ export function createExternalState<T>(
       () => state,
     )
 
-    return [localState, set] as [
-      T,
-      (newState: T | ((prevState: T) => T)) => void,
-    ]
+    return [localState, set] as [T, (newState: T | ((prevState: T) => T)) => void]
   }
-
 
   const useGetter = () => {
     const [value] = useState()
@@ -160,7 +153,7 @@ export function createExternalState<T>(
   }
 
   //@ts-expect-error ignore
-  return { get, set, useState, useGetter, __listeners: storeListeners }
+  return {get, set, useState, useGetter, __listeners: storeListeners}
 }
 
 export interface StorageStateOptions<T> {
@@ -174,7 +167,7 @@ export function createStorageState<T>(
   initialState: T,
   options?: StorageStateOptions<T>,
 ) {
-  const { storageType = 'local', onSet, onChange } = options ?? {}
+  const {storageType = 'local', onSet, onChange} = options ?? {}
   let _initState: T = initialState
 
   // 只在客户端环境中读取存储
