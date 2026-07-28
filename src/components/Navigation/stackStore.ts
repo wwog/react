@@ -1,4 +1,4 @@
-import type {ComponentType} from 'react'
+import {type ComponentType, useSyncExternalStore} from 'react'
 import {createExternalState} from '../../utils/createExternalState'
 import {Counter} from '../../utils/sundry'
 
@@ -54,10 +54,16 @@ export interface StackStore {
    */
   getSize: () => number
   /**
-   * @zh 在组件中订阅堆栈快照。
-   * @en Subscribe to the stack snapshot from a component.
+   * @zh 在组件中订阅堆栈快照。栈内容变化时重渲染。
+   * @en Subscribe to the stack snapshot from a component. Re-renders when stack content changes.
    */
   useStack: () => StackEntry[]
+  /**
+   * @zh 在组件中只订阅栈深度(数字)。仅当深度变化时重渲染,比 `useStack` 更细粒度。
+   * @en Subscribe to only the stack depth (number) from a component. Re-renders only when the depth
+   * changes; finer-grained than `useStack`.
+   */
+  useSize: () => number
 }
 
 /**
@@ -66,7 +72,19 @@ export interface StackStore {
  */
 export function createStackStore(maxStackSize = Number.POSITIVE_INFINITY): StackStore {
   const counter = new Counter()
-  const state = createExternalState<StackEntry[]>([])
+  // size 专用的监听器集合:仅当栈深度变化时通知,避免 useSize 消费者因栈内容变化而重渲染
+  const sizeListeners = new Set<() => void>()
+  let lastSize = 0
+
+  const state = createExternalState<StackEntry[]>([], {
+    onSet: (next) => {
+      const nextSize = next.length
+      if (nextSize !== lastSize) {
+        lastSize = nextSize
+        sizeListeners.forEach((l) => l())
+      }
+    },
+  })
 
   const getStack = state.get
 
@@ -121,6 +139,19 @@ export function createStackStore(maxStackSize = Number.POSITIVE_INFINITY): Stack
 
   const useStack = () => state.useState()[0]
 
+  // 细粒度订阅:仅深度变化时重渲染(数字比较,内容变但深度不变则不触发)
+  const useSize = () =>
+    useSyncExternalStore(
+      (onSizeChange) => {
+        sizeListeners.add(onSizeChange)
+        return () => {
+          sizeListeners.delete(onSizeChange)
+        }
+      },
+      () => state.get().length,
+      () => state.get().length,
+    )
+
   return {
     getStack,
     push,
@@ -130,5 +161,6 @@ export function createStackStore(maxStackSize = Number.POSITIVE_INFINITY): Stack
     canPop,
     getSize,
     useStack,
+    useSize,
   }
 }

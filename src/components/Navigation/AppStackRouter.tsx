@@ -16,6 +16,13 @@ import {useSwipeBack} from './useSwipeBack'
 
 const SENTINEL_STATE = {appStackSentinel: true}
 
+// 模块级实例 id 计数器:每个 AppStackRouter 实例唯一
+let appStackInstanceSeq = 0
+// 模块级:最后向 history pushState 哨兵的实例 id。
+// 浏览器只有一个 history 栈,多实例时只有"最后补哨兵的实例"响应 popstate(返回键),
+// 避免所有实例都出栈 + history 条目膨胀。这是多实例的降级语义(最后活跃实例拥有返回键)。
+let lastSentinelInstanceId = -1
+
 function hasSentinel(entry: unknown): boolean {
   return (
     typeof entry === 'object' &&
@@ -93,11 +100,14 @@ const AppStackContext = createContext<AppStackContextValue | null>(null)
 /**
  * @zh 在 `AppStackRouter` 内部任意子组件中获取导航 API。在 Router 外调用会抛错。
  *
- * 注意:`size` 与 `canPop()` 会在堆栈变化时同步更新(内部通过 `useSyncExternalStore` 订阅)。
+ * 注意:`size` 与 `canPop()` 会在栈深度变化时同步更新(内部仅订阅深度,不订阅完整栈,
+ * 因此栈内容变化但深度不变时不会触发重渲染,比订阅完整栈更高效)。
+ * 如需在栈内容变化时重渲染(罕见),使用 `useStackSize` 或直接读取 `size`。
  * @en Obtain the navigation API from any descendant of `AppStackRouter`. Throws when used outside.
  *
- * Note: `size` and `canPop()` stay in sync with the stack (subscribed internally via
- * `useSyncExternalStore`).
+ * Note: `size` and `canPop()` stay in sync with the stack depth (subscribed to depth only, not the
+ * full stack, so content changes that don't alter depth won't trigger a re-render -- more efficient
+ * than subscribing to the full stack).
  */
 export function useAppStack(): AppStackApi {
   const ctx = useContext(AppStackContext)
@@ -107,9 +117,9 @@ export function useAppStack(): AppStackApi {
     )
   }
   const {store, programmaticPop, doReplace, doReset} = ctx
-  // 订阅堆栈,使 size / canPop 在栈变化时触发重渲染
-  const stack = store.useStack()
-  const size = stack.length
+  // 仅订阅栈深度(数字),而非完整栈数组:push/pop 改变深度时重渲染,
+  // replace(深度不变)不触发重渲染。比订阅完整栈更高效。
+  const size = store.useSize()
 
   return useMemo<AppStackApi>(
     () => ({
@@ -122,6 +132,35 @@ export function useAppStack(): AppStackApi {
     }),
     [store, programmaticPop, doReplace, doReset, size],
   )
+}
+
+/**
+ * @zh 响应式订阅栈深度(不含根屏幕)。仅深度变化时重渲染。
+ * @en Reactively subscribe to the stack depth (excludes the root screen). Re-renders only on depth change.
+ */
+export function useStackSize(): number {
+  const ctx = useContext(AppStackContext)
+  if (!ctx) {
+    throw new Error(
+      'useStackSize() must be used within an <AppStackRouter>. Wrap your tree with <AppStackRouter root={...}>.',
+    )
+  }
+  return ctx.store.useSize()
+}
+
+/**
+ * @zh 响应式订阅当前栈是否可出栈(深度 > 0)。仅 canPop 状态变化时重渲染。
+ * @en Reactively subscribe to whether the stack can be popped (depth > 0). Re-renders only when the
+ * canPop state changes.
+ */
+export function useCanPop(): boolean {
+  const ctx = useContext(AppStackContext)
+  if (!ctx) {
+    throw new Error(
+      'useCanPop() must be used within an <AppStackRouter>. Wrap your tree with <AppStackRouter root={...}>.',
+    )
+  }
+  return ctx.store.useSize() > 0
 }
 
 export interface AppStackRouterProps {
@@ -253,6 +292,9 @@ export function AppStackRouter({
   const store = useMemo(() => createStackStore(maxStackSize), [maxStackSize])
   const stack = store.useStack()
 
+  // 本实例唯一 id,用于标记 history 哨兵归属,避免多实例互相响应 popstate
+  const instanceIdRef = useRef(++appStackInstanceSeq)
+
   const containerRef = useRef<HTMLDivElement>(null)
 
   // 跟踪容器实际宽度:视差位移 / 入场位移 / 拖拽阻尼都应基于容器宽度,
@@ -268,8 +310,10 @@ export function AppStackRouter({
     return () => ro.disconnect()
   }, [])
 
-  // 标记正在执行程序式 history.back(),避免其触发的 popstate 再次出栈造成双弹
-  const handlingProgrammaticBackRef = useRef(false)
+  // 待处理的程序式 history.back() 计数:每次 programmaticPop +1,
+  // 对应的 popstate 到达时 -1 并吸收(不触发出栈)。
+  // 用计数而非布尔,支持快速连续 pop(否则第二次 popstate 会误判为用户返回)。
+  const pendingBackCountRef = useRef(0)
 
   // 出场中的屏幕(过渡完成前保留,以保证 pop 动画播放)
   const [exitingViews, setExitingViews] = useState<ExitingView[]>([])
@@ -298,23 +342,37 @@ export function AppStackRouter({
   }, [exitingViews, transitionDuration])
 
   // --- 浏览器返回键拦截 ---
+  // 浏览器只有一个 history 栈,多实例时只有"最后补哨兵的实例"(lastSentinelInstanceId)
+  // 响应 popstate,避免所有实例都出栈 + history 条目膨胀。
+  // pendingBackCount 处理程序式 back 的吸收(支持快速连续 pop)。
+  const pushOwnSentinel = useCallback(() => {
+    window.history.pushState(SENTINEL_STATE, '')
+    lastSentinelInstanceId = instanceIdRef.current
+  }, [])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const selfId = instanceIdRef.current
+    // 挂载时补一个哨兵(若当前顶部非哨兵),并标记本实例为最后补哨兵者
     if (!hasSentinel(window.history.state)) {
-      window.history.pushState(SENTINEL_STATE, '')
+      pushOwnSentinel()
+    } else {
+      lastSentinelInstanceId = selfId
     }
 
     const onPopstate = () => {
-      if (handlingProgrammaticBackRef.current) {
-        handlingProgrammaticBackRef.current = false
-        // 程序式 back 消耗了哨兵,补回一个以维持拦截层
-        window.history.pushState(SENTINEL_STATE, '')
+      // 1) 程序式 back 的吸收:本实例有待处理的 back,消耗一个
+      if (pendingBackCountRef.current > 0) {
+        pendingBackCountRef.current -= 1
+        pushOwnSentinel()
         return
       }
+      // 2) 用户按了浏览器返回:仅当本实例是"最后补哨兵者"时响应
+      //    (多实例时,只有最后活跃的实例接管返回键)
+      if (lastSentinelInstanceId !== selfId) return
       if (store.canPop()) {
-        // 用户按了浏览器返回:出栈(走 performPop 以获得动画),并补一个哨兵维持拦截层
         performPop(0)
-        window.history.pushState(SENTINEL_STATE, '')
+        pushOwnSentinel()
       }
       // 栈空则放行:不补哨兵,允许真正离开页面
     }
@@ -322,26 +380,29 @@ export function AppStackRouter({
     window.addEventListener('popstate', onPopstate)
     return () => {
       window.removeEventListener('popstate', onPopstate)
-      // 卸载时若遗留哨兵,清理掉以免污染历史
-      if (hasSentinel(window.history.state)) {
-        handlingProgrammaticBackRef.current = true
-        window.history.back()
+      // 卸载时若本实例是最后补哨兵者,用 replaceState 同步清空哨兵状态。
+      // 不用 history.back()(异步,其 popstate 可能在新实例挂载后才触发,造成串扰)。
+      if (lastSentinelInstanceId === selfId && hasSentinel(window.history.state)) {
+        window.history.replaceState(null, '')
+        lastSentinelInstanceId = -1
       }
     }
-  }, [store, performPop])
+  }, [store, performPop, pushOwnSentinel])
 
   // --- 程序式 pop:先出栈(带动画),再用 history.back() 同步历史 ---
+  // pendingBackCount 记录待吸收的 popstate 数,支持快速连续 pop
   const programmaticPop = useCallback(() => {
     if (!store.canPop()) return
     performPop(0)
     if (typeof window !== 'undefined') {
-      handlingProgrammaticBackRef.current = true
+      pendingBackCountRef.current += 1
       window.history.back()
     }
   }, [store, performPop])
 
   // --- 左滑返回手势(原生监听器,可阻止滚动) ---
-  const {dragX, isDragging} = useSwipeBack(
+  // 拖拽位移通过 CSS 变量 --appstack-drag-x 直接更新 DOM,不触发 React 渲染
+  const {isDragging} = useSwipeBack(
     containerRef,
     store.canPop,
     (releaseX) => performPop(releaseX),
@@ -387,6 +448,10 @@ export function AppStackRouter({
           paddingRight: 'env(safe-area-inset-right)',
         }
       : null),
+    // 拖拽位移与容器宽度通过 CSS 变量下发给各层,拖拽中由 useSwipeBack 直接改 DOM,
+    // 不触发 React 渲染。--appstack-drag-x 默认 0,--appstack-width 由容器宽度同步。
+    ['--appstack-drag-x' as string]: '0px',
+    ['--appstack-width' as string]: `${containerWidth}px`,
     ...style,
   }
 
@@ -404,7 +469,6 @@ export function AppStackRouter({
           kind="root"
           isTop={activeViews.length === 0}
           isExiting={false}
-          dragX={dragX}
           isDragging={isDragging}
           parallax={PARALLAX}
           transitionDuration={transitionDuration}
@@ -416,8 +480,8 @@ export function AppStackRouter({
         {/* 活跃堆栈屏幕 */}
         {activeViews.map((entry, i) => {
           const isTop = i === activeViews.length - 1
-          // 拖拽顶层时,正下方的被覆盖层也要同步跟随露出(否则顶层右侧留白)。
-          // 因此拖拽期间,所有活跃层都接收 dragX 与 isDragging。
+          // 拖拽位移通过 CSS 变量 --appstack-drag-x 下发,所有活跃层自动跟随(无留白),
+          // 且拖拽中不触发 React 渲染。
           return (
             <ScreenLayer
               key={entry.id}
@@ -425,7 +489,6 @@ export function AppStackRouter({
               entry={entry}
               isTop={isTop}
               isExiting={false}
-              dragX={dragX}
               isDragging={isDragging}
               parallax={PARALLAX}
               transitionDuration={transitionDuration}
@@ -443,7 +506,6 @@ export function AppStackRouter({
             isTop={false}
             isExiting
             exitStartX={view.startX}
-            dragX={0}
             isDragging={false}
             parallax={PARALLAX}
             transitionDuration={transitionDuration}
@@ -461,7 +523,6 @@ interface ScreenLayerBaseProps {
   kind: 'root' | 'stack'
   isTop: boolean
   isExiting: boolean
-  dragX: number
   isDragging: boolean
   parallax: number
   transitionDuration: number
@@ -486,17 +547,19 @@ type ScreenLayerProps = ScreenLayerRootProps | ScreenLayerStackProps
 /**
  * 单个屏幕层。目标位移由其在栈中的角色决定,CSS transition 负责动画:
  * - 根层:顶层时归位,被覆盖时随拖拽按比例露出(视差)
- * - 顶层活跃:拖拽中跟手(dragX),否则 0
+ * - 顶层活跃:拖拽中跟手(var(--appstack-drag-x)),否则 0
  * - 被覆盖活跃:隐藏在视差位置,拖拽时按比例露出
  * - 进入层:首帧 width,下一帧切到目标以触发入场动画
- * - 出场层:首帧停在 exitStartX,下一帧滑到 width 触发出场动画
+ * - 出场层:首帧停在 exitStartX,下一帧切到 width 触发出场动画
+ *
+ * 拖拽位移通过 CSS 变量 --appstack-drag-x 驱动(由 useSwipeBack 直接改 DOM,
+ * 不触发 React 渲染),--appstack-width 为容器宽度。二者在容器上声明。
  */
 function ScreenLayer(props: ScreenLayerProps): ReactNode {
   const {
     kind,
     isTop,
     isExiting,
-    dragX,
     isDragging,
     parallax,
     transitionDuration,
@@ -512,25 +575,33 @@ function ScreenLayer(props: ScreenLayerProps): ReactNode {
     return () => cancelAnimationFrame(raf)
   }, [kind])
 
-  // 容器宽度由父级传入(基于实际容器尺寸,而非 window.innerWidth)
   const w = width
+  // 拖拽相关位移用 CSS 变量表达式,这样拖拽中 useSwipeBack 直接改 --appstack-drag-x
+  // 即可让所有相关层即时响应,无需 React 重渲染。
+  const dragVar = 'var(--appstack-drag-x, 0px)'
+  const widthVar = 'var(--appstack-width, 0px)'
 
-  let translateX: number
+  let transform: string
   if (kind === 'root') {
-    // 根屏幕:顶层时归位,被覆盖时随拖拽按比例露出(视差)
-    translateX = isTop ? 0 : -parallax * w + dragX * parallax
+    // 根屏幕:顶层时归位;被覆盖时 -parallax*width + dragX*parallax(随拖拽露出)
+    transform = isTop
+      ? 'translateX(0px)'
+      : `translateX(calc(${ -parallax } * ${ widthVar } + ${ dragVar } * ${ parallax }))`
   } else if (isExiting) {
     // 出场:首帧停在拖拽释放位置,下一帧滑出屏幕右侧
     const startX = props.exitStartX ?? 0
-    translateX = transitioned ? w : startX
+    transform = transitioned
+      ? `translateX(${ w }px)`
+      : `translateX(${ startX }px)`
   } else if (!transitioned) {
     // 进入首帧:从屏幕右侧外切入
-    translateX = w
+    transform = `translateX(${ w }px)`
   } else if (isTop) {
-    translateX = isDragging ? dragX : 0
+    // 顶层活跃:拖拽中跟手,否则归位
+    transform = isDragging ? `translateX(${ dragVar })` : 'translateX(0px)'
   } else {
     // 被覆盖:隐藏在视差位置,拖拽时按比例露出
-    translateX = -parallax * w + dragX * parallax
+    transform = `translateX(calc(${ -parallax } * ${ widthVar } + ${ dragVar } * ${ parallax }))`
   }
 
   const layerStyle: CSSProperties = {
@@ -538,7 +609,7 @@ function ScreenLayer(props: ScreenLayerProps): ReactNode {
     inset: 0,
     width: '100%',
     height: '100%',
-    transform: `translateX(${translateX}px)`,
+    transform,
     transition: isDragging
       ? 'none'
       : `transform ${transitionDuration}ms ease-out`,

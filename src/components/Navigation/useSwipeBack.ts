@@ -55,11 +55,6 @@ export interface UseSwipeBackOptions {
 
 export interface UseSwipeBackResult {
   /**
-   * @zh 当前顶层屏幕的横向位移(px)。0 表示未拖拽。
-   * @en Current horizontal offset (px) of the top screen. 0 means not dragging.
-   */
-  dragX: number
-  /**
    * @zh 是否正在拖拽(用于禁用 transition 以跟手)。
    * @en Whether a drag is in progress (used to disable transition for finger-following).
    */
@@ -95,7 +90,7 @@ export function useSwipeBack(
     cancelVelocity = 0.1,
   } = options
 
-  const [dragX, setDragX] = useState(0)
+  // isDragging 用 state(低频:仅 touchstart/touchend 触发),用于切换 transition 开关
   const [isDragging, setIsDragging] = useState(false)
 
   // 拖拽状态用 ref 存,避免每次 move 都触发依赖重建
@@ -121,6 +116,11 @@ export function useSwipeBack(
     if (!enabled) return
     const el = containerRef.current
     if (!el) return
+
+    // 直接通过 CSS 变量更新拖拽位移,绕过 React 渲染(60-120fps 的 touchmove 不触发重渲染)
+    const setDragVar = (x: number) => {
+      el.style.setProperty('--appstack-drag-x', `${x}px`)
+    }
 
     const onStart = (e: TouchEvent) => {
       if (!canPopRef.current()) return
@@ -154,7 +154,7 @@ export function useSwipeBack(
         if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 4) {
           draggingRef.current = false
           setIsDragging(false)
-          setDragX(0)
+          setDragVar(0)
           return
         }
         if (Math.abs(dx) > 4) {
@@ -174,9 +174,8 @@ export function useSwipeBack(
       lastMoveXRef.current = touch.clientX
       lastMoveTimeRef.current = now
 
-      // 只允许向右拖(出栈方向),向左夹到 0
-      const next = Math.max(0, dx)
-      setDragX(next)
+      // 只允许向右拖(出栈方向),向左夹到 0。直接写 CSS 变量,不触发 React 渲染
+      setDragVar(Math.max(0, dx))
     }
 
     const finish = () => {
@@ -190,7 +189,8 @@ export function useSwipeBack(
 
       draggingRef.current = false
       setIsDragging(false)
-      setDragX(0)
+      // 重置 CSS 变量,交回 React 控制回弹/滑出过渡
+      setDragVar(0)
 
       // 1) 取消意图:松手时手指正朝"取消"方向(向左)运动且速度足够,强制回弹
       if (
@@ -212,7 +212,7 @@ export function useSwipeBack(
     const onCancel = () => {
       draggingRef.current = false
       setIsDragging(false)
-      setDragX(0)
+      setDragVar(0)
     }
 
     // passive: false 才能在 touchmove 里 preventDefault 阻止滚动
@@ -237,5 +237,5 @@ export function useSwipeBack(
     containerRef,
   ])
 
-  return {dragX, isDragging}
+  return {isDragging}
 }

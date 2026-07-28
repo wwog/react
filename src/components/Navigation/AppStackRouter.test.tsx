@@ -1,7 +1,7 @@
 import {expect, describe, it, beforeEach, vi} from 'vitest'
 import {render} from 'vitest-browser-react'
 import React from 'react'
-import {AppStackRouter, useAppStack} from './AppStackRouter'
+import {AppStackRouter, useAppStack, useCanPop, useStackSize} from './AppStackRouter'
 
 function toEl(e: {element(): Element}): HTMLElement {
   return e.element() as HTMLElement
@@ -233,6 +233,56 @@ describe('AppStackRouter', () => {
     await vi.waitFor(() => {
       expect(container.querySelector('[data-testid="detail"]')).toBeNull()
       expect(toEl(getByTestId('reset-root'))).toBeDefined()
+    })
+  })
+
+  it('useStackSize 响应式订阅栈深度', async () => {
+    const Root = () => {
+      const {push} = useAppStack()
+      const size = useStackSize()
+      return (
+        <div data-testid="root">
+          <span data-testid="size">{size}</span>
+          <button data-testid="push-btn" onClick={() => push(Detail, {id: 1})}>
+            Push
+          </button>
+        </div>
+      )
+    }
+
+    const {getByTestId} = render(<AppStackRouter root={<Root />} />)
+    expect(toEl(getByTestId('size')).textContent).toBe('0')
+
+    await getByTestId('push-btn').click()
+    // 根屏幕被遮挡,但 useStackSize 在根屏幕组件内,其 size 已更新为 1
+    // 通过 Detail 内的返回按钮 pop 后验证 size 回到 0
+    await getByTestId('back').click()
+    await vi.waitFor(() => {
+      expect(toEl(getByTestId('size')).textContent).toBe('0')
+    })
+  })
+
+  it('useCanPop 响应式订阅可出栈状态', async () => {
+    const Root = () => {
+      const {push} = useAppStack()
+      const canPop = useCanPop()
+      return (
+        <div data-testid="root">
+          <span data-testid="canpop">{String(canPop)}</span>
+          <button data-testid="push-btn" onClick={() => push(Detail, {id: 1})}>
+            Push
+          </button>
+        </div>
+      )
+    }
+
+    const {getByTestId} = render(<AppStackRouter root={<Root />} />)
+    expect(toEl(getByTestId('canpop')).textContent).toBe('false')
+
+    await getByTestId('push-btn').click()
+    await getByTestId('back').click()
+    await vi.waitFor(() => {
+      expect(toEl(getByTestId('canpop')).textContent).toBe('false')
     })
   })
 
