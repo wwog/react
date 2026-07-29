@@ -331,15 +331,13 @@ export function AppStackRouter({
     [store],
   )
 
-  // 过渡结束后清理 exiting
-  useEffect(() => {
-    if (exitingViews.length === 0) return
-    const t = window.setTimeout(
-      () => setExitingViews([]),
-      transitionDuration + 60,
-    )
-    return () => window.clearTimeout(t)
-  }, [exitingViews, transitionDuration])
+  // --- 出场中屏幕的渲染与清理 ---
+  // 每个出场屏幕通过自身的 onTransitionEnd 事件报告动画完成,逐条移除,无需 setTimeout。
+  const removeExiting = useCallback(
+    (id: number) =>
+      setExitingViews((cur) => cur.filter((v) => v.entry.id !== id)),
+    [],
+  )
 
   // --- 浏览器返回键拦截 ---
   // 浏览器只有一个 history 栈,多实例时只有"最后补哨兵的实例"(lastSentinelInstanceId)
@@ -510,6 +508,7 @@ export function AppStackRouter({
             parallax={PARALLAX}
             transitionDuration={transitionDuration}
             width={containerWidth}
+            onExitEnd={() => removeExiting(view.entry.id)}
           />
         ))}
 
@@ -528,6 +527,11 @@ interface ScreenLayerBaseProps {
   transitionDuration: number
   /** @zh 容器宽度(px),用于计算视差/入场/出场位移 */
   width: number
+  /**
+   * @zh 出场过渡完成回调。仅 isExiting=true 时生效。
+   * @en Callback when the exit transition completes. Only used when isExiting is true.
+   */
+  onExitEnd?: () => void
 }
 
 interface ScreenLayerRootProps extends ScreenLayerBaseProps {
@@ -618,8 +622,28 @@ function ScreenLayer(props: ScreenLayerProps): ReactNode {
     pointerEvents: isTop && !isExiting ? 'auto' : 'none',
   }
 
+  const handleTransitionEnd = useCallback(
+    (e: React.TransitionEvent) => {
+      // 只响应当前层 exit 过渡(忽略子元素、忽略非退出态)
+      if (!isExiting) return
+      if (e.target !== e.currentTarget) return
+      if (!e.propertyName.includes('transform')) return
+      props.onExitEnd?.()
+    },
+    [isExiting, props.onExitEnd],
+  )
+
+  // 边缘情况:出场起始位移已超出屏幕(startX >= w),无实际过渡,通过 effect 立即清除
+  useEffect(() => {
+    if (kind !== 'stack' || !isExiting || !transitioned) return
+    const startX = props.exitStartX ?? 0
+    if (startX >= w) {
+      props.onExitEnd?.()
+    }
+  })
+
   return (
-    <div style={layerStyle}>
+    <div style={layerStyle} onTransitionEnd={handleTransitionEnd}>
       {kind === 'root' ? (
         props.children
       ) : (
