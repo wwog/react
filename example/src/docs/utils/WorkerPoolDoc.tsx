@@ -1,6 +1,6 @@
 import {useState, type FC} from "react";
-import {WorkerError, WorkerPool} from "../../../src";
-import {useI18n} from "../i18n";
+import {WorkerError, WorkerPool} from "../../../../src";
+import {useI18n} from "../../i18n";
 import {
   ApiTable,
   Button,
@@ -18,7 +18,7 @@ import {
   Stats,
   colors,
   controlStyle,
-} from "./ui";
+} from "../ui";
 
 /**
  * 自包含的耗时函数。worker 内源码由 toString() 序列化，因此不能引用任何外部变量——
