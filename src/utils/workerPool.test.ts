@@ -70,6 +70,36 @@ describe('WorkerPool 固定池', () => {
     pool.dispose()
   })
 
+  it('应该支持异步任务', async () => {
+    const pool = new WorkerPool()
+
+    const result = await pool.run(
+      async (xs: number[]) => {
+        await Promise.resolve()
+        return xs.reduce((a, b) => a + b, 0)
+      },
+      [1, 2, 3, 4],
+    )
+
+    expect(result).toBe(10)
+    pool.dispose()
+  })
+
+  it('应该结构化克隆复杂参数', async () => {
+    const pool = new WorkerPool()
+
+    const result = await pool.run(
+      (data: {list: string[]; map: Record<string, number>}) => ({
+        count: data.list.length,
+        sum: data.map.a + data.map.b,
+      }),
+      {list: ['x', 'y'], map: {a: 1, b: 2}},
+    )
+
+    expect(result).toEqual({count: 2, sum: 3})
+    pool.dispose()
+  })
+
   it('并发提交时两个 worker 同时忙碌', async () => {
     const pool = new WorkerPool()
 
@@ -149,6 +179,44 @@ describe('WorkerPool 固定池', () => {
 
     expect(result.size).toBe(3)
     expect(Array.from(result.out)).toEqual([5, 5, 5])
+    pool.dispose()
+  })
+
+  it('resultTransfer 支持嵌套路径与 TypedArray（转移其底层 buffer）', async () => {
+    const pool = new WorkerPool()
+
+    const result = await pool.run(
+      () => {
+        const view = new Uint16Array([1, 2, 3])
+        return {meta: {buf: view}}
+      },
+      null,
+      {resultTransfer: ['meta.buf']},
+    )
+
+    expect(Array.from(result.meta.buf)).toEqual([1, 2, 3])
+    pool.dispose()
+  })
+
+  it("resultTransfer 的 '.' 应转移结果本身", async () => {
+    const pool = new WorkerPool()
+
+    const out = await pool.run((n: number) => new Uint8Array(n).fill(9).buffer, 3, {
+      resultTransfer: ['.'],
+    })
+
+    expect(new Uint8Array(out)).toEqual(new Uint8Array([9, 9, 9]))
+    pool.dispose()
+  })
+
+  it('resultTransfer 路径写错时应退化为拷贝而不是失败', async () => {
+    const pool = new WorkerPool()
+
+    const result = await pool.run(() => ({value: 1}), null, {
+      resultTransfer: ['nope.missing'],
+    })
+
+    expect(result).toEqual({value: 1})
     pool.dispose()
   })
 

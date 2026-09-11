@@ -569,18 +569,20 @@ export const WorkerPoolDoc: FC = () => {
         {t({
           zh: (
             <>
-              和 <InlineCode>runInWorker</InlineCode> 的关键差别是复用：后者每次调用都新建并销毁一个 worker
-              （约 1.5ms 启动成本），池化后这笔成本只付一次。代价是 worker 是通用的，函数源码要在 worker 内用
-              <InlineCode>new Function</InlineCode> 重建，因此 CSP 需要允许 <InlineCode>unsafe-eval</InlineCode>。
+              池化最直接的收益是 worker 的启动成本只付一次：worker 一直复用，下一个任务直接开跑。代价是
+              worker 必须是通用的——任务自带函数源码，在 worker 内用 <InlineCode>new Function</InlineCode>{" "}
+              重建——因此页面 CSP 需要允许 <InlineCode>unsafe-eval</InlineCode>。若 CSP 不允许，可改用{" "}
+              <InlineCode>postTransferable</InlineCode> 自行驱动一个预先构建好的 worker 脚本。
             </>
           ),
           en: (
             <>
-              The key difference from <InlineCode>runInWorker</InlineCode> is reuse: that one creates
-              and destroys a worker per call (~1.5ms of startup), which the pool pays once. The price
-              is that workers are generic, so the function source is rebuilt inside the worker with{" "}
-              <InlineCode>new Function</InlineCode> — the page CSP must therefore allow{" "}
-              <InlineCode>unsafe-eval</InlineCode>.
+              The most direct win of pooling is paying worker startup once: a worker is reused, so the
+              next job starts immediately. The price is that workers must be generic — each job brings
+              its function's source and rebuilds it inside the worker with{" "}
+              <InlineCode>new Function</InlineCode> — so the page CSP must allow{" "}
+              <InlineCode>unsafe-eval</InlineCode>. If it cannot, drive a pre-built worker script
+              yourself through <InlineCode>postTransferable</InlineCode>.
             </>
           ),
         })}
@@ -784,8 +786,8 @@ pool.dispose();`}
           ]}
         />
         <P>
-          <InlineCode>run</InlineCode> / <InlineCode>runInWorker</InlineCode> /{" "}
-          <InlineCode>runInWorkerWithPool</InlineCode> {t({zh: "的 options", en: "options"})}
+          <InlineCode>run</InlineCode> / <InlineCode>runInWorkerWithPool</InlineCode>{" "}
+          {t({zh: "的 options", en: "options"})}
         </P>
         <ApiTable
           head={[t({zh: "选项", en: "option"}), t({zh: "类型", en: "type"}), t({zh: "说明", en: "description"})]}
@@ -813,17 +815,10 @@ pool.dispose();`}
           head={[t({zh: "导出", en: "export"}), t({zh: "说明", en: "description"})]}
           rows={[
             [
-              <InlineCode>runInWorker(fn, arg, options?)</InlineCode>,
-              t({
-                zh: "一次性任务：每次调用新建并销毁一个 worker。适合不可拆分的原子重计算。",
-                en: "One-shot job: creates and destroys a worker per call. For atomic, unsplittable computation.",
-              }),
-            ],
-            [
               <InlineCode>runInWorkerWithPool(fn, arg, options?)</InlineCode>,
               t({
-                zh: "走进程内共享池（默认 2 个 worker），适合批量重复调用。",
-                en: "Runs through the shared in-process pool (2 workers by default). For repeated batched calls.",
+                zh: "在进程内共享池上运行任务（默认 2 个 worker）——最常用的入口。",
+                en: "Runs a job on the shared in-process pool (2 workers by default) — the usual entry point.",
               }),
             ],
             [
@@ -855,8 +850,8 @@ pool.dispose();`}
             [
               t({zh: "CSP 需要 unsafe-eval", en: "CSP must allow unsafe-eval"}),
               t({
-                zh: "通用 worker 用 new Function 重建任务函数；这是窃取能力的前提。CSP 不能放宽时应改用 runInWorker。",
-                en: "Generic workers rebuild the job function with new Function; that is what enables stealing. If your CSP cannot allow it, use runInWorker instead.",
+                zh: "通用 worker 用 new Function 重建任务函数；这是窃取能力的前提。若 CSP 不允许，可改用 postTransferable 自行驱动一个预先构建好的 worker 脚本。",
+                en: "Generic workers rebuild the job function with new Function; that is what enables stealing. If your CSP cannot allow it, drive a pre-built worker script yourself through postTransferable.",
               }),
             ],
             [

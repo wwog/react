@@ -75,8 +75,8 @@ export class WorkerError extends Error {
 }
 
 /**
- * @en Options shared by {@link runInWorker} and the pooled variants.
- * @zh {@link runInWorker} 与池化变体共用的选项。
+ * @en Options for a worker job: what to move in, what to move back out.
+ * @zh worker 任务的选项：哪些数据移入 worker、哪些移回主线程。
  */
 export interface WorkerRunOptions {
   /**
@@ -142,9 +142,9 @@ export interface WorkerReplyChannel {
 export type WorkerReply = {ok: true; value: unknown} | {ok: false; error: string}
 
 /**
- * @en Build the bootstrap script a worker runs. Shared by {@link runInWorker}
- * and {@link WorkerPool} so both ends of the wire protocol — including result
- * transfer and the per-worker compile cache — live in one place.
+ * @en Build the bootstrap script a worker runs. Used by {@link WorkerPool} to
+ * start each of its workers, so both ends of the wire protocol — including
+ * result transfer and the per-worker compile cache — live in one place.
  *
  * The script expects each message to be `{source, arg, paths}`: the job
  * function's source text, its argument, and the result-transfer paths. It
@@ -152,20 +152,20 @@ export type WorkerReply = {ok: true; value: unknown} | {ok: false; error: string
  * sharing one function does not recompile it every time), runs it, and replies
  * in a tagged envelope.
  *
- * This is the low-level plumbing; usually you want {@link runInWorker} or
- * {@link WorkerPool}.
+ * This is low-level plumbing; usually you want {@link WorkerPool}. It stays
+ * exported so a hand-written worker can speak the same protocol.
  *
  * @param channel The keys replies are tagged with. See {@link WorkerReplyChannel}.
  * @returns Script source, ready for `new Worker(URL.createObjectURL(...))`.
  *
- * @zh 生成 worker 运行的引导脚本。由 {@link runInWorker} 与 {@link WorkerPool} 共用，
+ * @zh 生成 worker 运行的引导脚本。{@link WorkerPool} 用它启动每个 worker，
  * 使这条通信协议的两端——包括结果转移与 worker 内的编译缓存——只存在一处。
  *
  * 脚本期望每条消息形如 `{source, arg, paths}`：任务函数源码、参数、结果转移路径。
  * 它在每个 worker 内把 `source` 编译一次（一个很小的有界缓存，避免一批任务重复编译
  * 同一个函数），执行后以带标记的信封回包。
  *
- * 这属于底层管线；一般直接用 {@link runInWorker} 或 {@link WorkerPool}。
+ * 这属于底层管线；一般直接用 {@link WorkerPool}。
  */
 export function createWorkerScript(channel: WorkerReplyChannel): string {
   return `const OK_KEY = ${JSON.stringify(channel.okKey)}
@@ -248,74 +248,6 @@ export function readWorkerReply(reply: unknown, channel: WorkerReplyChannel): Wo
     }
   }
   return {ok: false, error: `malformed reply from worker: ${String(reply)}`}
-}
-
-/**
- * @en Run a self-contained function in a Web Worker and get its result as a
- * Promise. A fresh worker is created from a Blob URL per call and terminated
- * afterwards.
- *
- * Solves: atomic heavy computation (a multi-megabyte JSON.parse, per-pixel
- * image filtering) that CANNOT be split — no yield point exists inside it, so
- * the main thread is simply stuck until it finishes. Moving it to a worker
- * is the only way to keep the page responsive while it runs.
- *
- * Limitations: `fn` is serialized with `toString()`, so it must not capture
- * outer variables; it receives and returns structured-cloneable data (or a
- * Promise of such). If `arg` contains ArrayBuffers you want to transfer
- * instead of copy, use `transfer`; if the RESULT contains them, name their
- * paths in `resultTransfer`. Because a worker is started per call, repeated
- * calls should use {@link WorkerPool} instead.
- *
- * @param fn The function to execute in the worker.
- * @param arg The argument passed to `fn` (structured-cloned into the worker).
- * @param options See {@link WorkerRunOptions}.
- * @returns A promise resolving with `fn`'s result, or rejecting with
- *   `WorkerError` if the worker script fails.
- *
- * @example
- * ```ts
- * // Multi-megabyte payload parsing — atomic and unsplittable, so off-thread
- * const data = await runInWorker(
- *   (raw: string) => JSON.parse(raw) as Record<string, unknown>[],
- *   hugeRawText,
- * )
- *
- * // Pixel processing: the buffer moves in AND back out, both zero-copy
- * const result = await runInWorker(
- *   (img: {buf: ArrayBuffer, width: number, height: number}) => {
- *     // ... per-pixel filtering on img.buf ...
- *     return {buf: img.buf, width: img.width, height: img.height}
- *   },
- *   {buf: pixels.buffer, width, height},
- *   {transfer: [pixels.buffer], resultTransfer: ['buf']},
- * )
- * ```
- */
-export async function runInWorker<Arg, Result>(
-  fn: WorkerFn<Arg, Result>,
-  arg: Arg,
-  options: WorkerRunOptions = {},
-): Promise<Result> {
-  const channel: WorkerReplyChannel = {okKey: '__workerOk__', errKey: '__workerErr__'}
-  const url = URL.createObjectURL(
-    new Blob([createWorkerScript(channel)], {type: 'text/javascript'}),
-  )
-  const worker = new Worker(url, {type: 'module'})
-  URL.revokeObjectURL(url)
-
-  try {
-    const raw = await postTransferable(
-      worker,
-      {source: fn.toString(), arg, paths: options.resultTransfer ?? []},
-      options.transfer,
-    )
-    const reply = readWorkerReply(raw, channel)
-    if (!reply.ok) throw new WorkerError(`Worker function threw: ${reply.error}`)
-    return reply.value as Result
-  } finally {
-    worker.terminate()
-  }
 }
 
 /**

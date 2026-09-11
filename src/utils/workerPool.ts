@@ -5,8 +5,8 @@
  *
  * The pool holds at most `maxWorkers` workers (default 2) and never grows past
  * that. Workers are created on demand as jobs arrive, up to the cap, and are
- * never terminated while the pool lives. Unlike {@link runInWorker}, which
- * starts and stops a worker per call, a worker here is reused for the next job.
+ * never terminated while the pool lives. A worker is kept and reused for the
+ * next job, so worker startup is paid once for the pool instead of per job.
  *
  * The workers are generic: a job carries its function's source and rebuilds it
  * inside the worker, so any job can run on any worker — which is what makes
@@ -31,15 +31,15 @@
  * Two things follow from a shared, generic pool. Jobs are no longer serialized
  * per function: two calls can run in parallel on different workers, so `await`
  * when order matters. And the function source is rebuilt inside the worker with
- * `new Function`, so the worker script needs a CSP that allows `unsafe-eval` —
- * stricter than {@link runInWorker}'s `worker-src blob:`.
+ * `new Function`, so the worker script needs a CSP that allows `unsafe-eval` on
+ * top of the usual `worker-src blob:`. If `unsafe-eval` is off the table, drive
+ * a pre-built worker script yourself through {@link postTransferable}.
  *
  * @zh 池化（Pooling）：一小组固定的 worker 被所有任务共享——启动成本只付一次而非
  * 每次调用一次，空闲的 worker 还会窃取“已分配但尚未开始”的任务。
  *
  * 池内最多 `maxWorkers` 个 worker（默认 2），永不越界。worker 随任务到达按需创建
- * （不超过上限），池存活期间不会被回收。与每次调用都新建/销毁 worker 的
- * {@link runInWorker} 不同，这里的 worker 会被下一个任务复用。
+ * （不超过上限），池存活期间不会被回收：启动成本整池只付一次，而不是每个任务付一次。
  *
  * worker 是通用的：任务自带函数源码，在 worker 内重建——因此任何任务都能跑在任何
  * worker 上，这正是窃取得以成立的前提。worker 之间看不到彼此的队列，所以一切都由
@@ -58,8 +58,9 @@
  *
  * 共享的通用池带来两个后果。任务不再按函数串行：两个调用可能在不同 worker 上并行，
  * 需要顺序时请 `await`。并且函数源码在 worker 内由 `new Function` 重建，因此 worker
- * 脚本需要允许 `unsafe-eval` 的 CSP（比 {@link runInWorker} 的 `worker-src blob:`
- * 更严格）。
+ * 脚本在常规 `worker-src blob:` 之外还需要允许 `unsafe-eval`。若 CSP 不允许
+ * `unsafe-eval`，请自行驱动一个预先构建好的 worker 脚本，用
+ * {@link postTransferable} 与它通信。
  */
 
 import {Queue} from './queue'
@@ -397,9 +398,9 @@ export class WorkerPool {
    * and starts there, or waits in that worker's queue to be stolen by whoever
    * frees up next.
    *
-   * Same rules as {@link runInWorker}: `fn` is serialized with `toString()`, so
-   * it must not capture outer variables, and it receives and returns
-   * structured-cloneable data.
+   * Same rules as {@link runInWorkerWithPool}: `fn` is serialized with
+   * `toString()`, so it must not capture outer variables, and it receives and
+   * returns structured-cloneable data.
    *
    * @param fn Self-contained function to run in a worker.
    * @param arg Argument passed to `fn`.
@@ -409,7 +410,7 @@ export class WorkerPool {
    * @zh 把 `fn` 提交到池上执行。任务交给负载最轻的 worker 并就地启动，或在该 worker
    * 的队列中等待被下一个空闲者窃取。
    *
-   * 规则同 {@link runInWorker}：`fn` 用 `toString()` 序列化，不能捕获外部变量，
+   * 规则同 {@link runInWorkerWithPool}：`fn` 用 `toString()` 序列化，不能捕获外部变量，
    * 收发数据需可结构化克隆。
    */
   run<Arg, Result>(
@@ -619,18 +620,23 @@ export function disposeWorkerPool(): void {
 }
 
 /**
- * @en Pooled variant of {@link runInWorker}: runs `fn` through the shared
- * {@link WorkerPool}, so repeated calls reuse workers instead of paying startup
- * (~1.5ms) every time — and a batch of uneven jobs is spread across the pool by
- * least-loaded assignment and stealing.
+ * @en Run `fn` on the shared, process-wide {@link WorkerPool} — the shortest
+ * path to off-thread work, and the one most code should use.
  *
  * Solves: a batch of independent jobs — generating 60 thumbnails, parsing 30
- * chunks — where `runInWorker`'s per-call worker creation would add up to ~90ms
- * of pure setup. Same self-containment and structured-clone rules apply.
+ * chunks — without setting up a pool by hand. Workers are created on demand
+ * (default 2) and reused across calls, and a batch of uneven jobs is spread
+ * across them by least-loaded assignment and stealing: the worker that finishes
+ * early takes over the backlog of the one still grinding.
  *
- * @param fn Self-contained function (same rules as {@link runInWorker}).
+ * Same self-containment and structured-clone rules as {@link WorkerPool.run}.
+ * Call {@link disposeWorkerPool} on app teardown; until then the pool's workers
+ * stay alive, which is what keeps later calls free of startup cost.
+ *
+ * @param fn Self-contained function to run in a worker.
  * @param arg Argument passed to `fn`.
- * @param options See {@link WorkerRunOptions}.
+ * @param options See {@link WorkerRunOptions} — `transfer` for buffers going
+ *   in, `resultTransfer` for buffers coming back.
  * @returns Promise resolving with `fn`'s result.
  *
  * @example
@@ -642,9 +648,16 @@ export function disposeWorkerPool(): void {
  * )
  * ```
  *
- * @zh {@link runInWorker} 的池化版本：通过共享的 {@link WorkerPool} 运行 `fn`，
- * 重复调用复用 worker，无需每次支付约 1.5ms 的启动成本；一批耗时不均的任务会借
- * “最轻负载分配 + 窃取”铺满整个池。
+ * @zh 在进程内共享的 {@link WorkerPool} 上运行 `fn`——把工作移出主线程的最短路径，
+ * 也是大多数代码该用的那一个。
+ *
+ * 解决的是：一批互相独立的任务——生成 60 张缩略图、解析 30 个分片——不必手工建池。
+ * worker 按需创建（默认 2 个）并跨调用复用；一批耗时不均的任务会借“最轻负载分配 +
+ * 窃取”铺满整个池：先做完的 worker 会接管还在苦干的 worker 的积压。
+ *
+ * 自包含与可结构化克隆的要求同 {@link WorkerPool.run}。应用卸载时调用
+ * {@link disposeWorkerPool}；在那之前池内 worker 一直存活，这正是后续调用无需启动
+ * 成本的原因。
  */
 export function runInWorkerWithPool<Arg, Result>(
   fn: WorkerFn<Arg, Result>,
