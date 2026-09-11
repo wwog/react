@@ -6,3 +6,5 @@ export * from './components/Navigation'
 export * from './hooks'
 
 export * from './utils'
+
+export * from './algorithm'
