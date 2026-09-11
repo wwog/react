@@ -1,0 +1,63 @@
+name: Deploy example docs to GitHub Pages
+
+# 只在主分支上、且 example 或它直接引用的库源码发生变化时重新构建发布。
+# example 的页面通过相对路径 import 仓库 src/，所以库代码改动同样需要重新发布。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'example/**'
+      - 'src/**'
+      - '.github/workflows/deploy-example.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只保留一次发布，新的推送会取消排队中的旧任务。
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: example/package-lock.json
+
+      - name: Install dependencies
+        working-directory: example
+        run: npm ci
+
+      - name: Build docs
+        working-directory: example
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: example/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

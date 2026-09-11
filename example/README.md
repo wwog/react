@@ -10,6 +10,17 @@ npm run dev     # 本地开发
 npm run build   # tsc 类型检查 + vite 构建
 ```
 
+## 部署（GitHub Pages）
+
+线上地址：<https://wwog.github.io/react/>
+
+推送 `example/**` 或 `src/**` 到主分支后，`.github/workflows/deploy-example.yml` 会自动构建并发布。
+生产构建的 `base` 为 `/react/`（见 `vite.config.ts`），因此 `npm run preview` 会在
+<http://localhost:4173/react/> 预览，和线上路径完全一致，可以据此确认资源路径是否正确。
+
+发布依赖仓库的 Pages 设置里 **Source = GitHub Actions**（已配置）；若之后被改回分支发布，
+工作流会构建成功但无法上线。
+
 ## 布局与交互方式
 
 - **左右布局**：左侧固定侧边栏，右侧是当前功能的「文档 + 交互实例」。两侧各自独立滚动，顶栏吸附。
@@ -60,3 +71,9 @@ An interactive documentation app for `@wwog/react`: not static prose, but pages 
 To add a page: write a component under `src/docs/`, append an entry (`id`, `group`, `title`, `blurb`, `component`) to `routes` in `src/docs/registry.tsx`, and the sidebar, the `#/<id>` route, and both languages come for free.
 
 The examples import the library source directly (`../../src`), so editing the library is reflected here immediately.
+
+Deployed to GitHub Pages at <https://wwog.github.io/react/>. Pushing `example/**` or `src/**` to `main`
+triggers `.github/workflows/deploy-example.yml`, which builds and publishes automatically. Production
+builds use a `base` of `/react/` (see `vite.config.ts`), so `npm run preview` serves the exact same paths
+at <http://localhost:4173/react/>. The repository's Pages source must stay set to **GitHub Actions** for
+the deploy step to succeed.

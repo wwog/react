@@ -7,6 +7,17 @@
     "module": "ESNext",
     "skipLibCheck": true,
 
+    /* 库源码（src/）在 example 目录之外，在它里面解析 react 会沿目录向上找到仓库根部的
+       node_modules；CI 只安装 example 的依赖时那份并不存在，类型检查会直接失败。
+       这里固定到 example 自己那份类型声明（react 本体不带 d.ts，必须指向 @types）。
+       打包侧不需要同样处理：@vitejs/plugin-react 已内置 react/react-dom 的 dedupe。 */
+    "paths": {
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"]
+    },
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
