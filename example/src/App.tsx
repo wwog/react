@@ -1,7 +1,8 @@
 import {useEffect, useState, type CSSProperties, type FC} from "react";
 import {breakpoints, type BreakpointName, useScreen} from "../../src";
 import {LocaleProvider, useI18n} from "./i18n";
-import {defaultRouteId, findRoute, routes} from "./docs/registry";
+import {defaultRouteId, findRoute, routes, type DocRoute} from "./docs/registry";
+import {sectionLabels} from "./docs/types";
 import {colors} from "./docs/ui";
 
 /** 路由就是 URL hash，例如 #/worker-pool —— 不需要路由库，刷新与前进后退都可用。 */
@@ -184,17 +185,65 @@ const MenuButton: FC<{open: boolean; onClick: () => void}> = ({open, onClick}) =
 /** 面板内容：桌面端是常驻侧栏，移动端是抽屉，两者共用同一份结构。 */
 const SidebarBody: FC<{activeId: string; onNavigate?: () => void}> = ({activeId, onNavigate}) => {
   const {t} = useI18n();
-  const groupNames = Array.from(new Set(routes.map((route) => t(route.group))));
+  // 首页单独成项；其余页面统一收在「文档」标题下，标题内再按 group 分小节
+  const homeRoutes = routes.filter((route) => route.section === "home");
+  const docRoutes = routes.filter((route) => route.section !== "home");
+  const groupOf = (route: DocRoute) => (route.group ? t(route.group) : "");
+  const groupNames = Array.from(new Set(docRoutes.map(groupOf))).filter(Boolean);
+
+  const renderLink = (route: DocRoute) => {
+    const isActive = route.id === activeId;
+    return (
+      <a
+        key={route.id}
+        href={`#/${route.id}`}
+        onClick={onNavigate}
+        style={{
+          display: "block",
+          padding: "8px 10px",
+          borderRadius: 8,
+          marginBottom: 2,
+          textDecoration: "none",
+          fontSize: 13.5,
+          transition: "background 160ms ease, color 160ms ease",
+          color: isActive ? colors.accent : colors.body,
+          background: isActive ? colors.accentSoft : "transparent",
+          fontWeight: isActive ? 600 : 400,
+        }}
+      >
+        {t(route.title)}
+      </a>
+    );
+  };
 
   return (
     <>
       <div style={{padding: "18px 16px 10px"}}>
-        <div style={{fontSize: 15, fontWeight: 700}}>@wwog/react</div>
-        <div style={{fontSize: 12, color: colors.muted, marginTop: 3}}>
-          {t({zh: "交互式文档", en: "Interactive docs"})}
-        </div>
+        <a
+          href="#/home"
+          onClick={onNavigate}
+          style={{display: "block", textDecoration: "none", color: "inherit"}}
+        >
+          <div style={{fontSize: 15, fontWeight: 700}}>@wwog/react</div>
+          <div style={{fontSize: 12, color: colors.muted, marginTop: 3}}>
+            {t({zh: "交互式文档", en: "Interactive docs"})}
+          </div>
+        </a>
       </div>
       <nav style={{padding: "4px 8px 24px"}}>
+        {homeRoutes.map(renderLink)}
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: colors.text,
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
+            padding: "16px 8px 6px",
+          }}
+        >
+          {t(sectionLabels.docs)}
+        </div>
         {groupNames.map((groupName) => (
           <div key={groupName} style={{marginBottom: 14}}>
             <div
@@ -209,32 +258,7 @@ const SidebarBody: FC<{activeId: string; onNavigate?: () => void}> = ({activeId,
             >
               {groupName}
             </div>
-            {routes
-              .filter((route) => t(route.group) === groupName)
-              .map((route) => {
-                const isActive = route.id === activeId;
-                return (
-                  <a
-                    key={route.id}
-                    href={`#/${route.id}`}
-                    onClick={onNavigate}
-                    style={{
-                      display: "block",
-                      padding: "8px 10px",
-                      borderRadius: 8,
-                      marginBottom: 2,
-                      textDecoration: "none",
-                      fontSize: 13.5,
-                      transition: "background 160ms ease, color 160ms ease",
-                      color: isActive ? colors.accent : colors.body,
-                      background: isActive ? colors.accentSoft : "transparent",
-                      fontWeight: isActive ? 600 : 400,
-                    }}
-                  >
-                    {t(route.title)}
-                  </a>
-                );
-              })}
+            {docRoutes.filter((route) => groupOf(route) === groupName).map(renderLink)}
           </div>
         ))}
       </nav>
