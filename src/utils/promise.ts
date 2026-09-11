@@ -29,21 +29,39 @@ function promiseTry<T, U extends unknown[]>(
   }
 }
 
+/**
+ * `Promise.try` and `Promise.withResolvers` are newer than the lib target many
+ * consumers compile against — and this library ships its `src/`, so consumers
+ * type-check this file too. Reaching for the native members through an explicit
+ * cast keeps the polyfill compiling under any lib, instead of requiring a
+ * specific TypeScript version from everyone who imports it.
+ */
+type PromiseStatics = PromiseConstructor & {
+  try?: typeof promiseTry
+  withResolvers?: <T>() => {
+    promise: Promise<T>
+    resolve: (value: T | PromiseLike<T>) => void
+    reject: (reason?: unknown) => void
+  }
+}
+
 export const safePromiseTry = (() => {
-  if (typeof Promise.try === 'function') {
-    return Promise.try.bind(Promise)
+  const native = (Promise as PromiseStatics).try
+  if (typeof native === 'function') {
+    return native.bind(Promise)
   }
   return promiseTry
 })()
 
 export const safePromiseWithResolvers = (() => {
-  if (typeof Promise.withResolvers === 'function') {
-    return Promise.withResolvers.bind(Promise)
+  const native = (Promise as PromiseStatics).withResolvers
+  if (typeof native === 'function') {
+    return native.bind(Promise)
   }
   return <T>() => {
-    let resolve!: (value: T) => void
-    let reject!: (reason?: any) => void
-    const promise = new Promise((res, rej) => {
+    let resolve!: (value: T | PromiseLike<T>) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((res, rej) => {
       resolve = res
       reject = rej
     })

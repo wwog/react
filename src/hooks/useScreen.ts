@@ -29,6 +29,8 @@ export function useScreen(breakpointDesc: BreakpointDesc = DefBreakpointDesc) {
     () => (isBrowser ? getCurrentBreakpoint(breakpointDesc, window.innerWidth) : 'base'),
   )
 
+  // stableKey 作为稳定化的依赖，替代直接依赖 breakpointDesc 对象引用
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stableKey is the stable proxy for breakpointDesc object identity
   useEffect(() => {
     if (!isBrowser) return
 
@@ -80,8 +82,6 @@ export function useScreen(breakpointDesc: BreakpointDesc = DefBreakpointDesc) {
     return () => {
       listeners.forEach((removeListener) => removeListener())
     }
-    // stableKey 作为稳定化的依赖，替代直接依赖 breakpointDesc 对象引用
-    // biome-ignore lint/correctness/useExhaustiveDependencies: stableKey is the stable proxy for breakpointDesc object identity
   }, [stableKey])
 
   return currentBreakpoint

@@ -17,8 +17,10 @@
 
     /* Linting */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    /* 这里不开 noUnusedLocals / noUnusedParameters：示例直接引用库源码，而库源码按自身
+       tsconfig 使用经典 JSX 运行时（jsx: "react"）编写、必须 import React，在示例的
+       jsx: "react-jsx" 下会被判为「未使用」而误报。库自身的未使用检查由根目录的
+       `pnpm test:types` 负责。 */
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
