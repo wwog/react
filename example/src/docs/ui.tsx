@@ -1,4 +1,5 @@
 import type {CSSProperties, FC, ReactNode} from "react";
+import {tokenize, type TokenKind} from "./highlight";
 
 /** 示例应用的配色，集中一处便于保持一致。 */
 export const colors = {
@@ -18,6 +19,18 @@ export const colors = {
   codeText: "#e2e8f0",
   success: "#047857",
   successSoft: "#ecfdf5",
+};
+
+/** 代码块配色：深色底上的 One Dark 风格高亮，普通文本沿用 colors.codeText。 */
+const codeTheme: Record<TokenKind, string> = {
+  comment: "#7f8ea3",
+  string: "#98c379",
+  number: "#d19a66",
+  keyword: "#c678dd",
+  type: "#e5c07b",
+  function: "#61afef",
+  property: "#e06c75",
+  punct: "#9aa5b1",
 };
 
 export const controlStyle: CSSProperties = {
@@ -68,6 +81,27 @@ export const InlineCode: FC<{children: ReactNode}> = ({children}) => (
   </code>
 );
 
+/** 高亮后的代码块：tokenize 逐段着色，注释用斜体。 */
+const HighlightedCode: FC<{code: string}> = ({code}) => (
+  <code>
+    {tokenize(code).map((token, index) =>
+      token.kind ? (
+        <span
+          key={index}
+          style={{
+            color: codeTheme[token.kind],
+            fontStyle: token.kind === "comment" ? "italic" : undefined,
+          }}
+        >
+          {token.value}
+        </span>
+      ) : (
+        token.value
+      ),
+    )}
+  </code>
+);
+
 export const Code: FC<{code: string; caption?: ReactNode}> = ({code, caption}) => (
   <div style={{margin: "0 0 14px"}}>
     <pre
@@ -83,7 +117,7 @@ export const Code: FC<{code: string; caption?: ReactNode}> = ({code, caption}) =
         fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
       }}
     >
-      <code>{code}</code>
+      <HighlightedCode code={code} />
     </pre>
     {caption ? (
       <div style={{fontSize: 12, color: colors.muted, marginTop: 6, lineHeight: 1.6}}>

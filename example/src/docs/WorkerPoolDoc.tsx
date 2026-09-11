@@ -633,6 +633,25 @@ pool.dispose();`}
             en: "A job that has not started carries no side effects, so moving it is free. A job already running cannot be moved.",
           })}
         </P>
+        <Code
+          code={`import { WorkerPool } from "@wwog/react";
+
+const pool = new WorkerPool({ maxWorkers: 2 });
+
+// 两个长任务先占住 worker；紧接着的 4 个短任务被平均分给它们排队
+const heavy = [pool.run(encode, frameA), pool.run(encode, frameB)];
+const light = tiles.map((tile) => pool.run(resize, tile));
+
+// frameA 先做完：同一个 worker 不干等，而是窃取 frameB 队列里等待最久的任务
+await Promise.all([...heavy, ...light]);
+console.log(pool.stolen); // 窃取次数 > 0
+
+pool.dispose();`}
+          caption={t({
+            zh: "分配保证每个任务都有归属，窃取保证先空闲的 worker 不空转——两者合起来才是这个池的调度。",
+            en: "Assignment gives every job a home; stealing keeps an early-finished worker from idling. Together they are the scheduler.",
+          })}
+        />
         <StealingDemo />
       </Section>
 
@@ -694,6 +713,27 @@ pool.dispose();`}
             ),
           })}
         </P>
+        <Code
+          code={`import { WorkerError } from "@wwog/react";
+
+try {
+  await pool.run(() => {
+    throw new Error("boom from the worker");
+  }, null);
+} catch (error) {
+  if (error instanceof WorkerError) {
+    console.error(error.message); // Worker function threw: Error: boom from the worker
+    console.error(error.raw);     // worker 回传的原始错误消息
+  }
+}
+
+// 失败只属于这个任务：worker 没有死，同一个池继续可用
+const doubled = await pool.run((n: number) => n * 2, 21); // 42`}
+          caption={t({
+            zh: "worker 侧的失败（任务抛错、脚本报错、数据不可克隆）都归一为 WorkerError，调用方只需 catch 一种类型。",
+            en: "Every worker-side failure — a throwing job, a script error, non-cloneable data — is normalized to a WorkerError, so callers catch a single type.",
+          })}
+        />
         <ErrorDemo />
       </Section>
 
@@ -716,6 +756,24 @@ pool.dispose();`}
             ),
           })}
         </P>
+        <Code
+          code={`const pool = new WorkerPool({ maxWorkers: 4 });
+
+// 顺序提交：只用到 1 个 worker，池不会为它多开
+await pool.run(decode, shardA);
+await pool.run(decode, shardB);
+
+// 突发批量：池按需扩张到上限，一批任务铺满 4 个 worker
+const started = performance.now();
+await Promise.all(jobs.map((job) => pool.run(compress, job)));
+console.log(performance.now() - started); // 接近串行耗时的 1/4
+
+pool.dispose();`}
+          caption={t({
+            zh: "扩张只发生在「所有 worker 都忙」时，且绝不超过 maxWorkers；顺序任务因此只付一个 worker 的成本。",
+            en: "The pool grows only when every worker is busy and never past maxWorkers, so a sequential workload pays for a single worker.",
+          })}
+        />
         <ScalingDemo />
       </Section>
 
