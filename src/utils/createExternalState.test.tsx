@@ -5,7 +5,8 @@ import {
   createStorageState,
   type ExternalWithKernel,
 } from "./createExternalState";
-import React from "react";
+import { shallowEqual } from "./shallowEqual";
+import React, { useState } from "react";
 
 describe("createExternalState", () => {
   it("测试初始状态值", () => {
@@ -21,29 +22,6 @@ describe("createExternalState", () => {
 
     state.set(newState);
     expect(state.get()).toBe(newState);
-  });
-
-  it("测试use钩子在组件中使用", async () => {
-    const initialState = "initial";
-    const state = createExternalState(initialState);
-
-    function TestComponent() {
-      const [value, setValue] = state.use();
-      return (
-        <div>
-          <span data-testid="value">{value}</span>
-          <button onClick={() => setValue("updated")}>Update</button>
-        </div>
-      );
-    }
-
-    const { getByTestId, getByText } = render(<TestComponent />);
-    const valueLocator = getByTestId("value");
-    const buttonLocator = getByText("Update");
-    expect(valueLocator.element().textContent).toBe(initialState);
-    await buttonLocator.click();
-    expect(valueLocator.element().textContent).toBe("updated");
-    expect(state.get()).toBe("updated");
   });
 
   it("测试useState钩子在组件中使用", async () => {
@@ -74,7 +52,7 @@ describe("createExternalState", () => {
     const state = createExternalState(initialState);
 
     function ComponentA() {
-      const [value, setValue] = state.use();
+      const [value, setValue] = state.useState();
       return (
         <div>
           <span data-testid="valueA">{value}</span>
@@ -86,7 +64,7 @@ describe("createExternalState", () => {
     }
 
     function ComponentB() {
-      const [value, setValue] = state.use();
+      const [value, setValue] = state.useState();
       return (
         <div>
           <span data-testid="valueB">{value}</span>
@@ -126,7 +104,7 @@ describe("createExternalState", () => {
     ) as ExternalWithKernel<string>;
 
     function TestComponent() {
-      const [value, setValue] = state.use();
+      const [value, setValue] = state.useState();
       return (
         <div>
           <span data-testid="value">{value}</span>
@@ -204,7 +182,7 @@ describe("createExternalState", () => {
     expect(state.get()).toEqual(updatedUser);
 
     function TestComponent() {
-      const [user, setUser] = state.use();
+      const [user, setUser] = state.useState();
       return (
         <div>
           <span data-testid="name">{user.name}</span>
@@ -226,6 +204,317 @@ describe("createExternalState", () => {
     expect(nameLocator.element().textContent).toBe("王五");
     expect(ageLocator.element().textContent).toBe("35");
     expect(state.get()).toEqual({ name: "王五", age: 35 });
+  });
+});
+
+describe("useSelector", () => {
+  interface AppState {
+    name: string;
+    age: number;
+    theme: string;
+  }
+
+  const createAppState = () =>
+    createExternalState<AppState>({ name: "wwog", age: 1, theme: "light" });
+
+  it("测试只订阅切片:无关字段变化不重渲染", async () => {
+    const state = createAppState();
+    let nameRenders = 0;
+    let ageRenders = 0;
+    let fullRenders = 0;
+
+    function NameView() {
+      const name = state.useSelector((s) => s.name);
+      nameRenders++;
+      return <span data-testid="name">{name}</span>;
+    }
+
+    function AgeView() {
+      const age = state.useSelector((s) => s.age);
+      ageRenders++;
+      return <span data-testid="age">{age}</span>;
+    }
+
+    // 整份 state 的消费者:任意字段变化都应该重渲染
+    function FullView() {
+      const [full] = state.useState();
+      fullRenders++;
+      return <span data-testid="theme">{full.theme}</span>;
+    }
+
+    const { getByTestId, getByText } = render(
+      <>
+        <NameView />
+        <AgeView />
+        <FullView />
+        <button onClick={() => state.set((prev) => ({ ...prev, theme: "dark" }))}>
+          write theme
+        </button>
+        <button onClick={() => state.set((prev) => ({ ...prev, age: prev.age + 1 }))}>
+          write age
+        </button>
+        <button onClick={() => state.set((prev) => ({ ...prev, name: `${prev.name}!` }))}>
+          write name
+        </button>
+      </>
+    );
+
+    const nameBaseline = nameRenders;
+    const ageBaseline = ageRenders;
+    const fullBaseline = fullRenders;
+    expect(getByTestId("name").element().textContent).toBe("wwog");
+
+    // 改 theme:只有整份 state 的消费者重渲染,两个切片消费者都不动
+    await getByText("write theme").click();
+    expect(getByTestId("theme").element().textContent).toBe("dark");
+    expect(fullRenders).toBe(fullBaseline + 1);
+    expect(nameRenders).toBe(nameBaseline);
+    expect(ageRenders).toBe(ageBaseline);
+
+    // 改 age:只有 age 消费者 + 整份消费者重渲染
+    await getByText("write age").click();
+    expect(getByTestId("age").element().textContent).toBe("2");
+    expect(ageRenders).toBe(ageBaseline + 1);
+    expect(nameRenders).toBe(nameBaseline);
+    expect(fullRenders).toBe(fullBaseline + 2);
+
+    // 改 name:换一个消费者动,验证两个切片消费者互不牵连
+    await getByText("write name").click();
+    expect(getByTestId("name").element().textContent).toBe("wwog!");
+    expect(nameRenders).toBe(nameBaseline + 1);
+    expect(ageRenders).toBe(ageBaseline + 1);
+    expect(fullRenders).toBe(fullBaseline + 3);
+  });
+
+  it("测试合成对象切片:默认 Object.is 会重渲染,shallowEqual 不会", async () => {
+    const state = createAppState();
+    let defaultRenders = 0;
+    let shallowRenders = 0;
+
+    function DefaultPick() {
+      // 每次都是新对象,默认 Object.is 判定为「变了」
+      const head = state.useSelector((s) => ({ name: s.name, age: s.age }));
+      defaultRenders++;
+      return <span data-testid="default">{`${head.name}:${head.age}`}</span>;
+    }
+
+    function ShallowPick() {
+      const head = state.useSelector((s) => ({ name: s.name, age: s.age }), shallowEqual);
+      shallowRenders++;
+      return <span data-testid="shallow">{`${head.name}:${head.age}`}</span>;
+    }
+
+    const { getByTestId, getByText } = render(
+      <>
+        <DefaultPick />
+        <ShallowPick />
+        <button onClick={() => state.set((prev) => ({ ...prev, theme: "dark" }))}>
+          write theme
+        </button>
+        <button onClick={() => state.set((prev) => ({ ...prev, age: prev.age + 1 }))}>
+          write age
+        </button>
+      </>
+    );
+
+    const defaultBaseline = defaultRenders;
+    const shallowBaseline = shallowRenders;
+    // 能渲染出内容就说明没有陷入「快照永远不等」的死循环
+    expect(getByTestId("shallow").element().textContent).toBe("wwog:1");
+
+    // 无关字段变化:合成对象内容相同,浅比较的消费者不重渲染
+    await getByText("write theme").click();
+    expect(defaultRenders).toBe(defaultBaseline + 1);
+    expect(shallowRenders).toBe(shallowBaseline);
+
+    // 相关字段变化:两者都必须重渲染并读到新值——证明浅比较不是「永不更新」
+    await getByText("write age").click();
+    expect(getByTestId("default").element().textContent).toBe("wwog:2");
+    expect(getByTestId("shallow").element().textContent).toBe("wwog:2");
+    expect(shallowRenders).toBe(shallowBaseline + 1);
+    expect(defaultRenders).toBe(defaultBaseline + 2);
+  });
+
+  it("测试自定义 isEqual 生效", async () => {
+    const state = createAppState();
+    let renders = 0;
+
+    function ModuloView() {
+      // 只关心 age 的个位:个位相同即视为未变化,返回值沿用上一次的切片
+      const age = state.useSelector((s) => s.age, (next, prev) => next % 10 === prev % 10);
+      renders++;
+      return <span data-testid="age">{age}</span>;
+    }
+
+    const { getByTestId, getByText } = render(
+      <>
+        <ModuloView />
+        <button onClick={() => state.set((prev) => ({ ...prev, age: 11 }))}>to 11</button>
+        <button onClick={() => state.set((prev) => ({ ...prev, age: 12 }))}>to 12</button>
+      </>
+    );
+
+    const baseline = renders;
+    expect(getByTestId("age").element().textContent).toBe("1");
+
+    // 1 → 11:个位没变,不重渲染
+    await getByText("to 11").click();
+    expect(renders).toBe(baseline);
+    expect(getByTestId("age").element().textContent).toBe("1");
+
+    // 11 → 12:个位变了,重渲染并拿到当前值
+    await getByText("to 12").click();
+    expect(renders).toBe(baseline + 1);
+    expect(getByTestId("age").element().textContent).toBe("12");
+  });
+
+  it("测试切换 selector 后读到最新切片", async () => {
+    const state = createAppState();
+
+    function SwitchingView() {
+      const [which, setWhich] = useState<"name" | "age">("name");
+      // 内联 selector:每次 render 都是新引用,切换后必须读到当前切片而不是缓存
+      const value = state.useSelector((s) => (which === "name" ? s.name : s.age));
+      return (
+        <>
+          <span data-testid="value">{value}</span>
+          <button onClick={() => setWhich("age")}>switch</button>
+          <button onClick={() => state.set((prev) => ({ ...prev, age: 7 }))}>write age</button>
+        </>
+      );
+    }
+
+    const { getByTestId, getByText } = render(<SwitchingView />);
+    expect(getByTestId("value").element().textContent).toBe("wwog");
+
+    await getByText("switch").click();
+    expect(getByTestId("value").element().textContent).toBe("1");
+
+    await getByText("write age").click();
+    expect(getByTestId("value").element().textContent).toBe("7");
+  });
+
+  it("测试组件外 set 触发切片更新,卸载后移除监听器", async () => {
+    const state = createAppState() as ExternalWithKernel<AppState>;
+
+    function AgeView() {
+      const age = state.useSelector((s) => s.age);
+      return <span data-testid="age">{age}</span>;
+    }
+
+    function NameView() {
+      const [full] = state.useState();
+      return <span data-testid="name">{full.name}</span>;
+    }
+
+    expect(state.__listeners.length).toBe(0);
+    const { getByTestId, rerender } = render(
+      <>
+        <AgeView />
+        <NameView />
+      </>
+    );
+    // useSelector 与 useState 各自注册一个订阅
+    expect(state.__listeners.length).toBe(2);
+
+    // 组件外直接 set:没有事件处理器,React 会异步调度这次更新,所以等待其落地
+    state.set((prev) => ({ ...prev, age: 9 }));
+    await vi.waitFor(() => {
+      expect(getByTestId("age").element().textContent).toBe("9");
+    });
+
+    rerender(<div>Rerender</div>);
+    expect(state.__listeners.length).toBe(0);
+  });
+
+  it("测试 subscribe 在任意变化时触发并支持退订", () => {
+    const state = createAppState();
+    const listener = vi.fn();
+    const unsubscribe = state.subscribe(listener);
+
+    state.set((prev) => ({ ...prev, theme: "dark" }));
+    state.set((prev) => ({ ...prev, age: 2 }));
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+    state.set((prev) => ({ ...prev, age: 3 }));
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it("测试 subscribeWithSelector 只在切片变化时触发", () => {
+    const state = createAppState();
+    const listener = vi.fn();
+    const unsubscribe = state.subscribeWithSelector((s) => s.age, listener);
+
+    // 无关字段变化:切片没变,不触发
+    state.set((prev) => ({ ...prev, theme: "dark" }));
+    expect(listener).not.toHaveBeenCalled();
+
+    state.set((prev) => ({ ...prev, age: 2 }));
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(2, 1);
+
+    // 写成同一个值:切片没变,不触发
+    state.set((prev) => ({ ...prev, age: 2 }));
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    state.set((prev) => ({ ...prev, age: 3 }));
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("测试 subscribeWithSelector 的 fireImmediately 与自定义 isEqual", () => {
+    const state = createAppState();
+    const immediate = vi.fn();
+    state.subscribeWithSelector((s) => s.age, immediate, { fireImmediately: true });
+    expect(immediate).toHaveBeenCalledTimes(1);
+    expect(immediate).toHaveBeenCalledWith(1, 1);
+
+    const byLength = vi.fn();
+    state.subscribeWithSelector((s) => s.name, byLength, {
+      isEqual: (next, prev) => next.length === prev.length,
+    });
+    // "wwog" → "abcd":长度相同,视为未变化
+    state.set((prev) => ({ ...prev, name: "abcd" }));
+    expect(byLength).not.toHaveBeenCalled();
+
+    // 长度变了才触发,上一次切片仍是最初的 "wwog"
+    state.set((prev) => ({ ...prev, name: "abcde" }));
+    expect(byLength).toHaveBeenCalledTimes(1);
+    expect(byLength).toHaveBeenCalledWith("abcde", "wwog");
+  });
+
+  it("测试 createStorageState 也支持 useSelector", async () => {
+    localStorage.clear();
+    const state = createStorageState("selector-key", "");
+
+    let lengthRenders = 0;
+    function LengthView() {
+      const length = state.useSelector((s) => s.length);
+      lengthRenders++;
+      return <span data-testid="length">{length}</span>;
+    }
+
+    const { getByTestId, getByText } = render(
+      <>
+        <LengthView />
+        <button onClick={() => state.set("hello")}>write hello</button>
+        <button onClick={() => state.set("world")}>write world</button>
+      </>
+    );
+
+    const baseline = lengthRenders;
+    expect(getByTestId("length").element().textContent).toBe("0");
+
+    await getByText("write hello").click();
+    expect(getByTestId("length").element().textContent).toBe("5");
+    expect(lengthRenders).toBe(baseline + 1);
+    expect(localStorage.getItem("selector-key")).toBe('"hello"');
+
+    // 长度没变的内容更新:切片相同不重渲染,但存储照常写入
+    await getByText("write world").click();
+    expect(lengthRenders).toBe(baseline + 1);
+    expect(localStorage.getItem("selector-key")).toBe('"world"');
   });
 });
 
@@ -350,7 +639,7 @@ describe("createStorageState", () => {
     });
 
     function TestComponent() {
-      const [value, setValue] = state.use();
+      const [value, setValue] = state.useState();
       return (
         <div>
           <span data-testid="value">{value}</span>

@@ -1,5 +1,5 @@
-import {useRef, useState, type FC} from "react";
-import {createExternalState, createStorageState, type ExternalState} from "../../../../src";
+import {useRef, useState, type FC, type ReactNode} from "react";
+import {createExternalState, createStorageState, shallowEqual, type ExternalState} from "../../../../src";
 import {useI18n} from "../../i18n";
 import {
   ApiTable,
@@ -169,6 +169,138 @@ const CallbackDemo: FC = () => {
           log.map((line, index) => <div key={index}>{line}</div>)
         )}
       </Output>
+    </Demo>
+  );
+};
+
+/**
+ * 选择性订阅演示：一份对象状态，五个消费者各自订阅不同的切片。
+ * 每张卡片显示自己的渲染次数——写一个字段，只有切片真的变了的卡片会 +1。
+ */
+const sliceState = createExternalState({name: "wwog", age: 1, theme: "light"});
+
+const SliceCard: FC<{title: ReactNode; value: ReactNode; renders: number}> = ({title, value, renders}) => (
+  <div
+    style={{
+      flex: 1,
+      minWidth: 150,
+      padding: 12,
+      borderRadius: 10,
+      border: `1px solid ${colors.border}`,
+      background: "#fff",
+    }}
+  >
+    <div style={{fontSize: 12, color: colors.muted}}>{title}</div>
+    <div style={{fontSize: 18, fontWeight: 600, marginTop: 4}}>{value}</div>
+    <div style={{fontSize: 12, color: colors.muted, marginTop: 4}}>
+      renders: <strong style={{fontVariantNumeric: "tabular-nums"}}>{renders}</strong>
+    </div>
+  </div>
+);
+
+/** 演示用的渲染计数器：渲染次数写在 ref 里，不额外触发渲染。 */
+const useRenderCount = () => {
+  const renders = useRef(0);
+  renders.current++;
+  return renders.current;
+};
+
+const NameSliceCard: FC = () => {
+  const {t} = useI18n();
+  const name = sliceState.useSelector((s) => s.name);
+  return (
+    <SliceCard
+      title={t({zh: "useSelector(s => s.name)", en: "useSelector(s => s.name)"})}
+      value={name}
+      renders={useRenderCount()}
+    />
+  );
+};
+
+const AgeSliceCard: FC = () => {
+  const {t} = useI18n();
+  const age = sliceState.useSelector((s) => s.age);
+  return (
+    <SliceCard
+      title={t({zh: "useSelector(s => s.age)", en: "useSelector(s => s.age)"})}
+      value={age}
+      renders={useRenderCount()}
+    />
+  );
+};
+
+/** 合成对象：每次调用都是新引用，必须给 shallowEqual 才不会被误判成「变了」。 */
+const ComposedSliceCard: FC = () => {
+  const {t} = useI18n();
+  const head = sliceState.useSelector((s) => ({name: s.name, age: s.age}), shallowEqual);
+  return (
+    <SliceCard
+      title={t({zh: "({name, age}) + shallowEqual", en: "({name, age}) + shallowEqual"})}
+      value={`${head.name} / ${head.age}`}
+      renders={useRenderCount()}
+    />
+  );
+};
+
+const ThemeSliceCard: FC = () => {
+  const {t} = useI18n();
+  const theme = sliceState.useSelector((s) => s.theme);
+  return (
+    <SliceCard
+      title={t({zh: "useSelector(s => s.theme)", en: "useSelector(s => s.theme)"})}
+      value={theme}
+      renders={useRenderCount()}
+    />
+  );
+};
+
+/** 对照组：整份 state 的消费者，任意字段变化都会重渲染。 */
+const FullStateCard: FC = () => {
+  const {t} = useI18n();
+  const [full] = sliceState.useState();
+  return (
+    <SliceCard
+      title={t({zh: "useState() 整份 state", en: "useState() whole state"})}
+      value={`${full.name} / ${full.age} / ${full.theme}`}
+      renders={useRenderCount()}
+    />
+  );
+};
+
+const SelectorDemo: FC = () => {
+  const {t} = useI18n();
+
+  return (
+    <Demo
+      title={t({zh: "示例:只订阅自己关心的字段", en: "Demo: subscribe to one slice only"})}
+      hint={t({
+        zh: "点按钮改字段，看每张卡片的 renders:改 theme 只有 theme 卡片和整份 state 卡片增加;改 name / age 会同时影响合成对象卡片。",
+        en: "Write fields and watch the render counters: writing theme only bumps the theme card and the whole-state card, while name / age also affect the composed-object card.",
+      })}
+    >
+      <Controls>
+        <Button onClick={() => sliceState.set((prev) => ({...prev, name: `${prev.name}!`}))}>
+          {t({zh: "改 name", en: "write name"})}
+        </Button>
+        <Button onClick={() => sliceState.set((prev) => ({...prev, age: prev.age + 1}))}>
+          {t({zh: "改 age", en: "write age"})}
+        </Button>
+        <Button
+          onClick={() =>
+            sliceState.set((prev) => ({...prev, theme: prev.theme === "light" ? "dark" : "light"}))
+          }
+          tone="ghost"
+        >
+          {t({zh: "改 theme", en: "write theme"})}
+        </Button>
+      </Controls>
+      <div style={{display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap"}}>
+        <NameSliceCard />
+        <AgeSliceCard />
+        <ComposedSliceCard />
+        <ThemeSliceCard />
+        <FullStateCard />
+      </div>
     </Demo>
   );
 };
@@ -347,7 +479,97 @@ function Readout() {
         </P>
       </Section>
 
-      <Section title={t({zh: "3. 持久化:createStorageState", en: "3. Persistence: createStorageState"})}>
+      <Section title={t({zh: "3. 选择性订阅:useSelector", en: "3. Selective subscription: useSelector"})}>
+        <P>
+          {t({
+            zh: (
+              <>
+                <InlineCode>useState()</InlineCode> 订阅整份 state，任一字段变化都会重渲染。用{" "}
+                <InlineCode>useSelector(selector, isEqual?)</InlineCode> 只订阅自己关心的切片：
+                切片没变就不重渲染。相等性默认是 <InlineCode>Object.is</InlineCode>，比较基准是上一次
+                <b>已提交</b>的切片，因此每次 render 都换引用的内联 selector 既不会多渲染，也不会读到旧值。
+              </>
+            ),
+            en: (
+              <>
+                <InlineCode>useState()</InlineCode> subscribes to the whole state and re-renders on any
+                field. <InlineCode>useSelector(selector, isEqual?)</InlineCode> subscribes to one slice
+                and skips the re-render when it is unchanged. Equality defaults to{" "}
+                <InlineCode>Object.is</InlineCode> and compares against the last <b>committed</b> slice,
+                so an inline selector whose identity changes every render neither over-renders nor reads
+                a stale value.
+              </>
+            ),
+          })}
+        </P>
+        <SelectorDemo />
+        <Code
+          code={`import { shallowEqual } from "@wwog/react";
+
+const appState = createExternalState({ name: "wwog", age: 1, theme: "light" });
+
+// 只订阅 name:改 age / theme 都不会让这个组件重渲染
+function NameLabel() {
+  const name = appState.useSelector((s) => s.name);
+  return <span>{name}</span>;
+}
+
+// 合成对象:每次调用都是新引用,必须给相等函数
+function HeadLabel() {
+  const head = appState.useSelector((s) => ({ name: s.name, age: s.age }), shallowEqual);
+  return (
+    <span>
+      {head.name} / {head.age}
+    </span>
+  );
+}
+
+// 组件外按切片订阅:切片没变就不会回调
+const stop = appState.subscribeWithSelector(
+  (s) => s.age,
+  (age, prevAge) => console.log(prevAge + " -> " + age),
+  { fireImmediately: false },
+);
+stop();`}
+        />
+        <Callout tone="warn">
+          {t({
+            zh: (
+              <>
+                selector 返回<b>新对象 / 新数组</b>时（<InlineCode>{"s => ({a: s.a})"}</InlineCode>、
+                <InlineCode>{"s => s.list.filter(...)"}</InlineCode>）默认的{" "}
+                <InlineCode>Object.is</InlineCode> 永远判定为「变了」，无关字段变化也会重渲染——此时必须传{" "}
+                <InlineCode>isEqual</InlineCode>（如 <InlineCode>shallowEqual</InlineCode>）。
+                另外 <InlineCode>shallowEqual</InlineCode> 只逐键比较数组与普通对象；{" "}
+                <InlineCode>Date</InlineCode> / <InlineCode>Map</InlineCode> / 类实例退化为引用比较，宁可多渲染
+                一次，也不会漏掉更新。
+              </>
+            ),
+            en: (
+              <>
+                A selector that returns a <b>new object / array</b> (
+                <InlineCode>{"s => ({a: s.a})"}</InlineCode>,{" "}
+                <InlineCode>{"s => s.list.filter(...)"}</InlineCode>) makes the default{" "}
+                <InlineCode>Object.is</InlineCode> always report a change, so unrelated writes re-render
+                too — pass an <InlineCode>isEqual</InlineCode> such as <InlineCode>shallowEqual</InlineCode>.
+                Note that <InlineCode>shallowEqual</InlineCode> compares arrays and plain objects key-wise
+                only; <InlineCode>Date</InlineCode> / <InlineCode>Map</InlineCode> / class instances fall
+                back to reference equality, so it costs an extra render rather than a missed update.
+              </>
+            ),
+          })}
+        </Callout>
+        <P>
+          <Muted>
+            {t({
+              zh: "一次 set 仍会通知所有订阅者，但每个消费者只做一次切片比较，因此不相关组件付出的是比较成本而不是渲染成本；本库不做变更批处理，同一 tick 内 N 次 set 会通知 N 次，由此产生的重渲染交给 React 合并。",
+              en: "A set still notifies every subscriber, but each consumer only compares its slice, so an unrelated component pays a comparison instead of a render. There is no change batching: N writes in one tick notify N times, and React coalesces the resulting renders.",
+            })}
+          </Muted>
+        </P>
+      </Section>
+
+      <Section title={t({zh: "4. 持久化:createStorageState", en: "4. Persistence: createStorageState"})}>
         <StorageDemo />
         <Code
           code={`import { createStorageState } from "@wwog/react";
@@ -364,7 +586,7 @@ const draft = createStorageState("draft", "", { storageType: "session" });`}
         />
       </Section>
 
-      <Section title={t({zh: "4. API 参考", en: "4. API reference"})}>
+      <Section title={t({zh: "5. API 参考", en: "5. API reference"})}>
         <P>
           <InlineCode>createExternalState(initialState, options?)</InlineCode>
         </P>
@@ -383,6 +605,27 @@ const draft = createStorageState("draft", "", { storageType: "session" });`}
             [
               <InlineCode>useGetter()</InlineCode>,
               t({zh: "只订阅并返回 value。", en: "Subscribe to and return the value only."}),
+            ],
+            [
+              <InlineCode>useSelector(selector, isEqual?)</InlineCode>,
+              t({
+                zh: "只订阅 selector 选出的切片;切片相等时不重渲染(默认 Object.is)。",
+                en: "Subscribe to the slice returned by selector; no re-render while it compares equal (Object.is by default).",
+              }),
+            ],
+            [
+              <InlineCode>subscribe(listener)</InlineCode>,
+              t({
+                zh: "组件外订阅任意变化,返回退订函数。",
+                en: "Subscribe to any change outside components; returns an unsubscribe function.",
+              }),
+            ],
+            [
+              <InlineCode>subscribeWithSelector(selector, listener, options?)</InlineCode>,
+              t({
+                zh: "组件外按切片订阅,切片没变就不回调;options 支持 isEqual 与 fireImmediately。",
+                en: "Subscribe to a slice outside components; the listener is skipped while the slice is unchanged. options supports isEqual and fireImmediately.",
+              }),
             ],
           ]}
         />
@@ -403,6 +646,21 @@ const draft = createStorageState("draft", "", { storageType: "session" });`}
               t({zh: "写入存储之后调用。", en: "Called after writing to storage."}),
             ],
             [<InlineCode>onChange</InlineCode>, <InlineCode>callback</InlineCode>, t({zh: "透传给 createExternalState。", en: "Passed through to createExternalState."})],
+          ]}
+        />
+        <P>
+          <InlineCode>shallowEqual(a, b)</InlineCode>
+        </P>
+        <ApiTable
+          head={[t({zh: "类型", en: "type"}), t({zh: "说明", en: "description"})]}
+          rows={[
+            [
+              <InlineCode>{"(a: unknown, b: unknown) => boolean"}</InlineCode>,
+              t({
+                zh: "数组与普通对象逐键 Object.is 浅比较,可直接作为 isEqual 传给 useSelector / subscribeWithSelector。",
+                en: "One-level, key-wise Object.is compare for arrays and plain objects; pass it as isEqual to useSelector / subscribeWithSelector.",
+              }),
+            ],
           ]}
         />
       </Section>

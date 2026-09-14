@@ -213,31 +213,20 @@ function UserList({ users }) {
 **Performance Note**: When no sorting is needed, filtering is done during the map loop for optimal performance. When sorting is provided, filtering is applied first, then sorting, to minimize operations.
 ```
 
-#### `<Clamp>` (v1.2.14+)
+#### `<Clamp>` (added in v1.2.14, removed in v1.3.0)
 
-> Removed in v1.3.0. The compatibility problem is too big, the desktop web page works well, h5 has a problem.
+> **Removed — do not use.** The compatibility problem is too big: the desktop web page works well, h5 has a problem. `Clamp` is no longer exported, so `import { Clamp }` fails.
 
-A component for displaying text with a fixed number of lines, ellipsis, and optional extra content.
+For a fixed number of lines, use CSS directly — no component needed:
 
-```tsx
-import { Clamp } from "@wwog/react";
-
-function Example() {
-  return (
-    <Clamp
-      text="This is a long text that will be truncated with ellipsis..."
-      maxLine={2}
-      extraContent={<button>See more</button>}
-    />
-  );
+```css
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 ```
-
-- `text`: The text content to be displayed.
-- `maxLine`: Maximum number of lines, defaults to 1.
-- `extraContent`: Extra content to display at the end of the text, such as a "See more" button.
-- `extraHeight`: Height of the extra content, defaults to 20.
-- `wrapperStyle`: Style for the wrapper container.
 
 #### `<Pipe>` (v1.1.7+)
 
@@ -677,6 +666,34 @@ function ReadOnlyThemeConsumer() {
 }
 ```
 
+**Selective subscription (v1.5.0+)**
+
+`useState()` subscribes to the whole state, so any field re-renders. With an object state, `useSelector` subscribes to one slice only:
+
+```tsx
+import { createExternalState, shallowEqual } from "@wwog/react";
+
+const appState = createExternalState({ name: "wwog", age: 1, theme: "light" });
+
+function NameLabel() {
+  // changing age / theme does NOT re-render this component
+  const name = appState.useSelector((s) => s.name);
+  return <span>{name}</span>;
+}
+
+// A selector that builds a new object/array returns a fresh reference every call,
+// so it must be given an equality function or unrelated writes re-render too
+const head = appState.useSelector((s) => ({ name: s.name, age: s.age }), shallowEqual);
+
+// Slice subscription outside components: the listener is skipped while the slice is unchanged
+const stop = appState.subscribeWithSelector((s) => s.age, (age, prevAge) => {
+  console.log(`${prevAge} -> ${age}`);
+});
+stop();
+```
+
+A `set` still notifies every subscriber, but each consumer only compares its own slice, so an unrelated component pays a comparison instead of a render.
+
 - `createExternalState<T>(initialState, options?)`: Creates a state accessible outside components
 
   - `initialState`: Initial state value
@@ -687,6 +704,9 @@ function ReadOnlyThemeConsumer() {
     - `set(newState)`: Update the state value
     - `useState()`: React Hook, returns `[state, setState]` for using this state in components (same return shape as React `useState`)
     - `useGetter()`: React Hook that only returns the state value, useful when you only need to read the state
+    - `useSelector(selector, isEqual?)` (v1.5.0+): Subscribe to the slice returned by `selector`; no re-render while it compares equal. `isEqual` defaults to `Object.is`
+    - `subscribe(listener)` (v1.5.0+): Subscribe to any change outside components; returns an unsubscribe function
+    - `subscribeWithSelector(selector, listener, options?)` (v1.5.0+): Slice subscription outside components, with `options.isEqual` / `options.fireImmediately`; on the first change `prevSlice` is the slice as of subscribing
 
   Use cases:
 
@@ -694,6 +714,16 @@ function ReadOnlyThemeConsumer() {
 - Cross-component communication
 - Reactive state in services or utility classes
 - Sharing state with non-React code
+
+#### `shallowEqual` (v1.5.0+)
+
+One-level, key-wise `Object.is` comparison for arrays and plain objects — pass it as `isEqual` to `useSelector` / `subscribeWithSelector`.
+
+```tsx
+const head = appState.useSelector((s) => ({ name: s.name, age: s.age }), shallowEqual);
+```
+
+> Only arrays and plain objects are compared key-wise: `Date` / `Map` / `Set` / class instances have no own enumerable keys, so a key-wise pass would call two different values equal. Those types fall back to reference equality — an extra render is preferable to a missed update.
 
 #### `formatDate`
 

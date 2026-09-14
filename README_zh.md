@@ -216,34 +216,20 @@ function UserList({ users }) {
 **性能说明**: 当不需要排序时，过滤在 map 循环中进行以获得最佳性能。当提供排序时，先执行过滤再排序，以减少操作次数。
 ```
 
-#### `<Clamp>` (v1.2.14+)
+#### `<Clamp>`（v1.2.14 加入，v1.3.0 移除）
 
-> v1.3.0 移除。兼容性问题太大，桌面网页效果很好，h5 有问题。
+> **已移除，不要使用。** 兼容性问题太大：桌面网页效果很好，h5 有问题。本库不再导出 `Clamp`，`import { Clamp }` 会失败。
 
-用于固定行数，显示省略号且显示额外内容的组件。
+固定行数截断请直接用 CSS，无需组件：
 
-```tsx
-import { Clamp } from "@wwog/react";
-
-function Example() {
-  return (
-    <Clamp
-      text="这是一段很长的文本，会被截断并显示省略号..."
-      maxLine={2}
-      lineHeight={20}
-      ellipsis={true}
-      extraContent={<button>查看更多</button>}
-      bgColor="#fff"
-    />
-  );
+```css
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 ```
-
-- `text`: 要显示的文本内容。
-- `maxLine`: 最大行数，默认为 1。
-- `extraContent`: 在文本末尾显示的额外内容，如"查看更多"按钮。
-- `extraHeight`: 额外内容的高度，默认为 20。
-- `wrapperStyle`: 包装器的样式。
 
 #### `<Pipe>` (v1.1.7+)
 
@@ -674,10 +660,52 @@ function ReadOnlyThemeConsumer() {
 }
 ```
 
+**选择性订阅 (v1.5.0+)**
+
+`useState()` 订阅整份 state，任一字段变化都会重渲染。对象状态用 `useSelector` 只订阅自己关心的切片：
+
+```tsx
+import { createExternalState, shallowEqual } from "@wwog/react";
+
+const appState = createExternalState({ name: "wwog", age: 1, theme: "light" });
+
+function NameLabel() {
+  // 改 age / theme 都不会让这个组件重渲染
+  const name = appState.useSelector((s) => s.name);
+  return <span>{name}</span>;
+}
+
+// selector 返回新对象/新数组时每次都是新引用，必须给相等函数，
+// 否则无关字段变化也会重渲染
+const head = appState.useSelector((s) => ({ name: s.name, age: s.age }), shallowEqual);
+
+// 组件外按切片订阅：切片没变就不会回调
+const stop = appState.subscribeWithSelector((s) => s.age, (age, prevAge) => {
+  console.log(`${prevAge} -> ${age}`);
+});
+stop();
+```
+
+一次 `set` 仍会通知所有订阅者，但每个消费者只做一次切片比较，因此不相关组件付出的是比较成本而不是渲染成本。
+
 - `createExternalState<T>(initialState, options?)`: 创建一个可在组件外部访问的状态
   - `initialState`: 初始状态值
   - `options.onSet`: 可选回调，每次调用 `set()` 后触发，即使值未发生变化
   - `options.onChange`: 可选回调，仅在内部存储值实际发生变化时触发（通过 `Object.is` 比较）
+  - `useSelector(selector, isEqual?)` (v1.5.0+): 只订阅 selector 选出的切片，切片相等时不重渲染，`isEqual` 默认 `Object.is`
+  - `useGetter()` (v1.2.13+): 只返回整份 state 的值
+  - `subscribe(listener)` (v1.5.0+): 组件外订阅任意变化，返回退订函数
+  - `subscribeWithSelector(selector, listener, options?)` (v1.5.0+): 组件外按切片订阅，`options.isEqual` / `options.fireImmediately`；首次变化时 `prevSlice` 是订阅时的切片
+
+#### `shallowEqual` (v1.5.0+)
+
+数组 / 普通对象逐键 `Object.is` 浅比较，配合 `useSelector` / `subscribeWithSelector` 的 `isEqual` 使用。
+
+```tsx
+const head = appState.useSelector((s) => ({ name: s.name, age: s.age }), shallowEqual);
+```
+
+> 只逐键比较数组与普通对象：`Date` / `Map` / `Set` / 类实例的自有可枚举键都是空的，逐键比较会把内容不同的两个对象误判为相等，因此这些类型退化为引用比较——宁可多渲染一次，也不漏掉更新。
 
 适用场景:
 

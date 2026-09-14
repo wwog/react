@@ -1,6 +1,6 @@
 ---
 name: use-wwog-react
-description: When writing or editing React/TSX code in a project that depends on @wwog/react, prefer these declarative components and utilities over hand-rolled equivalents. Trigger when: conditional rendering (ternary, &&, multi-branch switch), multi-condition gating, data transformation pipelines, list rendering (.map + filter + sort + empty state), date formatting, error boundaries, intersection observers, portals, focus traps, className composition, controlled/uncontrolled input wiring, responsive breakpoints, mobile stack navigation with back gestures, throttling high-frequency child renders to a frame budget, splitting long tasks and yielding to the main thread, debounce/throttle/rAF scheduling, off-main-thread work in Web Workers, worker pools, memoization, bounded queues and backpressure (drop-oldest / latest-wins), FLIP animations, focusability queries, module-level shared state and localStorage-backed state, timezone-independent weekday math. Do NOT suggest if @wwog/react is not installed.
+description: When writing or editing React/TSX code in a project that depends on @wwog/react, prefer these declarative components and utilities over hand-rolled equivalents. Trigger when: conditional rendering (ternary, &&, multi-branch switch), multi-condition gating, data transformation pipelines, list rendering (.map + filter + sort + empty state), date formatting, error boundaries, intersection observers, portals, focus traps, className composition, controlled/uncontrolled input wiring, responsive breakpoints, mobile stack navigation with back gestures, throttling high-frequency child renders to a frame budget, splitting long tasks and yielding to the main thread, debounce/throttle/rAF scheduling, off-main-thread work in Web Workers, worker pools, memoization, bounded queues and backpressure (drop-oldest / latest-wins), FLIP animations, focusability queries, module-level shared state and localStorage-backed state, fine-grained store subscriptions (one field changing re-rendering only the components that read it) and shallow selector equality, timezone-independent weekday math. Do NOT suggest if @wwog/react is not installed.
 ---
 
 # @wwog/react — declarative components & utilities
@@ -24,7 +24,7 @@ import {
   // hooks
   useControlled, useScreen, getCurrentBreakpoint,
   // utils
-  cx, createExternalState, createStorageState, formatDate, Counter,
+  cx, createExternalState, createStorageState, shallowEqual, formatDate, Counter,
   childrenLoop, safePromiseTry, safePromiseWithResolvers,
   getTabIndex, isFocusable, isTabbable, getFocusableElements, getTabbableElements,
   breakpoints, DefBreakpointDesc,
@@ -644,9 +644,32 @@ function ThemeButton() {
 const persisted = createStorageState<string>("key", "initial")   // localStorage by default
 ```
 
-Returned API: `get()`, `set(value | updater)`, `useState(): [T, setter]`, `useGetter(): T`. Options are `{ onSet?, onChange? }` — `onSet` fires on **every** `set` (even unchanged), `onChange` only when `Object.is` differs.
+### Selecting a slice: `useSelector`
 
-Caveats: each call creates an **independent** store — share the returned instance (module-level const) to sync components. There are no selector subscriptions and no batching: every subscriber re-renders on any `set`. Callback errors are caught and logged (`console.error`), never propagated. `useState` provides a server snapshot, so SSR renders the current value but does not subscribe.
+For an object store, `useState()` re-renders on *any* field. `useSelector(selector, isEqual?)` subscribes to one slice and re-renders only when that slice changes:
+
+```tsx
+const appState = createExternalState({ name: "wwog", age: 1, theme: "light" })
+
+function NameLabel() {
+  // changing age / theme does NOT re-render this component
+  const name = appState.useSelector((s) => s.name)
+  return <span>{name}</span>
+}
+
+// a selector that composes a NEW object must be given an equality fn,
+// or every unrelated write re-renders (fresh reference each call):
+import { shallowEqual } from "@wwog/react"
+const head = appState.useSelector((s) => ({ name: s.name, age: s.age }), shallowEqual)
+```
+
+Equality defaults to `Object.is` and is compared against the last **committed** slice, so a selector whose reference identity changes every render (an inline arrow) is safe: no extra re-render, no stale slice. `shallowEqual` compares arrays / plain objects one level deep with `Object.is` per entry; `Date` / `Map` / `Set` / class instances deliberately fall back to reference equality (their own enumerable keys are empty, so a key-wise pass would call two different values equal and a subscriber would miss the update).
+
+Outside components: `subscribe(listener)` fires on any change; `subscribeWithSelector(selector, (nextSlice, prevSlice) => {}, { isEqual?, fireImmediately? })` fires only when the slice changes (`prevSlice` on the first change is the slice as of subscribing; `fireImmediately` calls back once at subscribe time with `nextSlice === prevSlice`). Both return an unsubscribe function.
+
+Returned API: `get()`, `set(value | updater)`, `useState(): [T, setter]`, `useGetter(): T`, `useSelector(selector, isEqual?)`, `subscribe(listener)`, `subscribeWithSelector(selector, listener, options?)`. Options are `{ onSet?, onChange? }` — `onSet` fires on **every** `set` (even unchanged), `onChange` only when `Object.is` differs.
+
+Caveats: each call creates an **independent** store — share the returned instance (module-level const) to sync components. A `set` still notifies every subscriber, but each one only compares its own slice, so an unrelated write costs a comparison rather than a re-render; there is no batching, so `N` writes in one tick notify `N` times (React batches the resulting renders). Callback errors are caught and logged (`console.error`), never propagated. `useState` / `useSelector` provide a server snapshot, so SSR renders the current value but does not subscribe.
 
 `createStorageState(key, initialState, options)` persists `JSON.stringify` on every `set` and reads once at creation. `storageType` is `"local" | "session"` (typed as required, defaults to `"local"` at runtime). It is client-only (guarded by `typeof window`), warns and falls back to `initialState` on a parse failure, writes via `onSet` (so it also writes when the value is unchanged), and does **not** listen for cross-tab `storage` events.
 

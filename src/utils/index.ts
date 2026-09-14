@@ -1,5 +1,6 @@
 export * from './focusable'
 export * from './createExternalState'
+export * from './shallowEqual'
 export * from './cx'
 export * from './reactUtils'
 export * from './sundry'

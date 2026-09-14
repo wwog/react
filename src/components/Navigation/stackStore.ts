@@ -1,4 +1,4 @@
-import {type ComponentType, useSyncExternalStore} from 'react'
+import type {ComponentType} from 'react'
 import {createExternalState} from '../../utils/createExternalState'
 import {Counter} from '../../utils/sundry'
 
@@ -72,19 +72,8 @@ export interface StackStore {
  */
 export function createStackStore(maxStackSize = Number.POSITIVE_INFINITY): StackStore {
   const counter = new Counter()
-  // size 专用的监听器集合:仅当栈深度变化时通知,避免 useSize 消费者因栈内容变化而重渲染
-  const sizeListeners = new Set<() => void>()
-  let lastSize = 0
 
-  const state = createExternalState<StackEntry[]>([], {
-    onSet: (next) => {
-      const nextSize = next.length
-      if (nextSize !== lastSize) {
-        lastSize = nextSize
-        sizeListeners.forEach((l) => l())
-      }
-    },
-  })
+  const state = createExternalState<StackEntry[]>([])
 
   const getStack = state.get
 
@@ -140,17 +129,7 @@ export function createStackStore(maxStackSize = Number.POSITIVE_INFINITY): Stack
   const useStack = () => state.useState()[0]
 
   // 细粒度订阅:仅深度变化时重渲染(数字比较,内容变但深度不变则不触发)
-  const useSize = () =>
-    useSyncExternalStore(
-      (onSizeChange) => {
-        sizeListeners.add(onSizeChange)
-        return () => {
-          sizeListeners.delete(onSizeChange)
-        }
-      },
-      () => state.get().length,
-      () => state.get().length,
-    )
+  const useSize = () => state.useSelector((stack) => stack.length)
 
   return {
     getStack,
