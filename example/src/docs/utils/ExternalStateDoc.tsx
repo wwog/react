@@ -334,8 +334,8 @@ const StorageDemo: FC = () => {
     <Demo
       title={t({zh: "示例:写入 localStorage 的状态", en: "Demo: state persisted to localStorage"})}
       hint={t({
-        zh: "createStorageState 在 createExternalState 之上，把 set 的结果 JSON 序列化写入存储；刷新页面后初值从存储恢复。",
-        en: "createStorageState layers on createExternalState: every set is JSON-serialized into storage, and the initial value is restored from storage on reload.",
+        zh: "createStorageState 在 createExternalState 之上，把 set 的结果 JSON 序列化写入存储；刷新页面后初值从存储恢复。序列化结果与已存内容相同时跳过写入。",
+        en: "createStorageState layers on createExternalState: every set is JSON-serialized into storage, and the initial value is restored from storage on reload. A write whose serialized result matches what is stored is skipped.",
       })}
     >
       <Controls>
@@ -375,6 +375,83 @@ const StorageDemo: FC = () => {
         </div>
         <Muted>{t({zh: "刷新页面后，输入框会从这条存储里恢复。", en: "After a reload the input restores from this entry."})}</Muted>
       </Output>
+    </Demo>
+  );
+};
+
+/**
+ * 跨标签页同步演示。真实的 storage 事件只在「其它标签页」写入时由浏览器触发,同一个标签页写入不会
+ * 触发,所以这里手动派发一个 StorageEvent 来扮演另一个标签页,并如实把这件事写在界面上。
+ */
+const crossTabRef = {current: null as ExternalState<string> | null};
+
+const CrossTabDemo: FC = () => {
+  const {t} = useI18n();
+  const [log, setLog] = useState<string[]>([]);
+
+  if (!crossTabRef.current) {
+    crossTabRef.current = createStorageState<string>("wwog-demo-crosstab", "", {
+      syncAcrossTabs: true,
+    });
+  }
+  const store = crossTabRef.current;
+  const [note, setNote] = store.useState();
+
+  const fakeOtherTab = (value: string | null) => {
+    const key = "wwog-demo-crosstab";
+    if (value === null) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+    // 派发一个与浏览器行为一致的 storage 事件(key 为 null 表示对方 clear())
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: value === null ? null : key,
+        newValue: value === null ? null : JSON.stringify(value),
+        storageArea: localStorage,
+      })
+    );
+    setLog((prev) =>
+      [value === null ? "其它标签页 removeItem / clear()" : `其它标签页写入 ${value}`, ...prev].slice(0, 5)
+    );
+  };
+
+  return (
+    <Demo
+      title={t({zh: "示例:跟随其它标签页的写入", en: "Demo: following another tab's writes"})}
+      hint={t({
+        zh: "开启 syncAcrossTabs 后,其它标签页写入的值会经 set 同步进来。浏览器只在其它标签页写入时触发 storage 事件,所以下面两个按钮手动派发该事件来扮演另一个标签页。",
+        en: "With syncAcrossTabs on, a value written by another tab is applied through set. The browser only fires storage events for other tabs' writes, so the buttons below dispatch one to play that role.",
+      })}
+    >
+      <Controls>
+        <Button onClick={() => fakeOtherTab("from-other-tab")}>
+          {t({zh: "模拟其它标签页写入", en: "simulate another tab's write"})}
+        </Button>
+        <Button onClick={() => fakeOtherTab(null)} tone="ghost">
+          {t({zh: "模拟其它标签页 clear()", en: "simulate another tab clearing"})}
+        </Button>
+        <Button onClick={() => store.set("local-write")} tone="ghost">
+          {t({zh: "本标签页写入", en: "write from this tab"})}
+        </Button>
+      </Controls>
+      <Output>
+        <div>
+          {t({zh: "当前值", en: "current value"})}: <strong>{note === "" ? "—" : note}</strong>
+        </div>
+        {log.map((line, index) => (
+          <Muted key={index}>{line}</Muted>
+        ))}
+      </Output>
+      <P>
+        <Muted>
+          {t({
+            zh: "其它标签页写入的值不会被写回存储(否则两个标签页会来回弹);对方 clear() 时状态回到初值,同样不写回",
+            en: "A remote value is never written back (otherwise the two tabs would bounce it back and forth); a remote clear() returns the state to the initial value, also without writing back.",
+          })}
+        </Muted>
+      </P>
     </Demo>
   );
 };
@@ -466,6 +543,14 @@ function Readout() {
               <InlineCode>onChange</InlineCode>,
               t({zh: "仅当 Object.is(newState, prevState) 为 false。", en: "Only when Object.is(newState, prevState) is false."}),
               <InlineCode>(newState, prevState)</InlineCode>,
+            ],
+            [
+              <InlineCode>notify</InlineCode>,
+              t({
+                zh: "'sync'(默认):set 返回前通知完毕。'microtask':同一轮任务内多次 set 只通知一次,中间态被跳过;onSet / onChange 仍逐次同步执行。",
+                en: "'sync' (default): notification completes before set returns. 'microtask': several set calls in one task notify once and intermediate states are skipped, while onSet / onChange still run per set.",
+              }),
+              <InlineCode>{"'sync' | 'microtask'"}</InlineCode>,
             ],
           ]}
         />
@@ -562,8 +647,16 @@ stop();`}
         <P>
           <Muted>
             {t({
-              zh: "一次 set 仍会通知所有订阅者，但每个消费者只做一次切片比较，因此不相关组件付出的是比较成本而不是渲染成本；本库不做变更批处理，同一 tick 内 N 次 set 会通知 N 次，由此产生的重渲染交给 React 合并。",
-              en: "A set still notifies every subscriber, but each consumer only compares its slice, so an unrelated component pays a comparison instead of a render. There is no change batching: N writes in one tick notify N times, and React coalesces the resulting renders.",
+              zh: "一次 set 仍会通知所有订阅者，但每个消费者只做一次切片比较，因此不相关组件付出的是比较成本而不是渲染成本；本库不做变更批处理，同一 tick 内 N 次 set 会通知 N 次，由此产生的重渲染交给 React 合并。set 必须返回新引用：原地修改与旧值 Object.is 相等，不会触发任何更新。",
+              en: "A set still notifies every subscriber, but each consumer only compares its slice, so an unrelated component pays a comparison instead of a render. There is no change batching: N writes in one tick notify N times, and React coalesces the resulting renders. set must return a new reference — mutating in place is Object.is-equal to the previous value and updates nothing.",
+            })}
+          </Muted>
+        </P>
+        <P>
+          <Muted>
+            {t({
+              zh: "开发构建下，若 selector 每次返回新引用但内容浅比较相等，控制台会按 hook 实例提示一次（建议传 isEqual）；生产构建里这段提示会被打包器消除。上面第一张卡片故意这么写，所以你会看到它。",
+              en: "In development, a selector that returns a new reference with shallow-equal contents logs one hint per hook (suggesting isEqual); production builds drop it. The first card above is written that way on purpose, so you will see it.",
             })}
           </Muted>
         </P>
@@ -574,7 +667,7 @@ stop();`}
         <Code
           code={`import { createStorageState } from "@wwog/react";
 
-// 每次 set 都会 JSON 序列化写入 localStorage;刷新后从存储恢复初值
+// 每次 set 都会 JSON 序列化写入 localStorage(序列化结果与已存内容相同时跳过);刷新后从存储恢复初值
 const note = createStorageState("app-note", "");
 
 // 或 sessionStorage
@@ -584,6 +677,7 @@ const draft = createStorageState("draft", "", { storageType: "session" });`}
             en: "A parse failure falls back to initialState with a console.warn; in SSR (no window) storage is not touched.",
           })}
         />
+        <CrossTabDemo />
       </Section>
 
       <Section title={t({zh: "5. API 参考", en: "5. API reference"})}>
@@ -596,7 +690,10 @@ const draft = createStorageState("draft", "", { storageType: "session" });`}
             [<InlineCode>get()</InlineCode>, t({zh: "读取当前值。", en: "Read the current value."})],
             [
               <InlineCode>set(next)</InlineCode>,
-              t({zh: "写入新值或 updater 函数 (prev) => next。", en: "Write a value or an updater (prev) => next."}),
+              t({
+                zh: "写入新值或 updater 函数 (prev) => next；updater 必须返回新引用，原地修改不会触发更新。",
+                en: "Write a value or an updater (prev) => next. An updater must return a new reference; mutating in place triggers nothing.",
+              }),
             ],
             [
               <InlineCode>useState()</InlineCode>,
@@ -638,7 +735,15 @@ const draft = createStorageState("draft", "", { storageType: "session" });`}
             [
               <InlineCode>storageType</InlineCode>,
               <InlineCode>"local" | "session"</InlineCode>,
-              t({zh: "使用 localStorage 或 sessionStorage。", en: "Use localStorage or sessionStorage."}),
+              t({zh: "使用 localStorage 或 sessionStorage,默认 local。", en: "Use localStorage or sessionStorage, local by default."}),
+            ],
+            [
+              <InlineCode>syncAcrossTabs</InlineCode>,
+              <InlineCode>boolean</InlineCode>,
+              t({
+                zh: "跟随其它标签页的写入,默认 false。远端值经 set 同步进来且不写回;对方 clear() 时回到初值且不写回。sessionStorage 收不到该事件。",
+                en: "Follow writes from other tabs, false by default. A remote value is applied through set and never written back; a remote clear() returns to the initial value without writing back. sessionStorage gets no such event.",
+              }),
             ],
             [
               <InlineCode>onSet</InlineCode>,

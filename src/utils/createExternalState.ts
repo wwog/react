@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useRef, useSyncExternalStore} from 'react'
-import {safePromiseTry} from './promise'
+import {shallowEqual} from './shallowEqual'
 
 /**
  * @zh 状态回调函数。对于异步函数，会在状态更新后执行，不会阻塞状态更新，尽可能在外部使用 useEffect 处理异步副作用。
@@ -60,6 +60,25 @@ export interface ExternalStateOptions<T> {
    * @zh 仅在内部存储值发生变化时触发
    */
   onChange?: ExternalStateCallback<T>
+  /**
+   * @zh 通知订阅者的时机。
+   *
+   * `'sync'`（默认）：`set` 返回前就通知完毕，写完立刻读的代码（含测试里的同步断言）都成立。
+   * `'microtask'`：同一轮任务内多次 `set` 只通知一次，通知在微任务里执行。适合「订阅者多 + 写很频繁」
+   * 的场景——省下的是每次 `set` 的一遍遍历与通知，React 那侧本来就会合并渲染，所以净语义不变；区别是
+   * `set` 返回时订阅者还没收到通知，且中间态被跳过（订阅者只看到本轮最后的值）。
+   * `onSet` / `onChange` 不受影响，仍然逐次同步执行。
+   * @en When subscribers are notified.
+   *
+   * `'sync'` (default): notification completes before `set` returns, so code that reads right after
+   * writing (including synchronous assertions in tests) holds. `'microtask'`: several `set` calls in
+   * one task notify once, from a microtask. Worth it when there are many subscribers and writes are
+   * frequent — what it saves is the per-`set` walk and notification, and since React coalesces
+   * renders anyway the net semantics are the same; the difference is that subscribers have not been
+   * notified when `set` returns and intermediate states are skipped (they see the last value of the
+   * batch). `onSet` / `onChange` are unaffected and still run synchronously for every `set`.
+   */
+  notify?: 'sync' | 'microtask'
 }
 
 /**
@@ -76,8 +95,12 @@ export interface ExternalState<T> {
   get: () => T
 
   /**
-   * @en Set a new state value
-   * @zh 设置新的状态值
+   * @zh 设置新的状态值。传入 updater 时必须返回**新引用**：原地修改
+   * （`set((prev) => {prev.list.push(x); return prev})`）与旧值 `Object.is` 相等，会被判定为
+   * 「没有变化」，订阅者不会收到通知。
+   * @en Set a new state value. An updater must return a **new reference**: mutating in place
+   * (`set((prev) => {prev.list.push(x); return prev})`) compares `Object.is`-equal to the previous
+   * value, counts as "unchanged", and notifies nobody.
    * @param newState The new state value or a function that returns it / 新的状态值或返回新状态的函数
    */
   set: (newState: T | ((prevState: T) => T)) => void
@@ -181,6 +204,47 @@ export interface ExternalWithKernel<T> extends ExternalState<T> {
 const identity = <S>(value: S): S => value
 
 /**
+ * @zh 只声明本模块需要的形状，不依赖 `@types/node` —— 本库发布 `src/`，使用者的工程不一定装了
+ * node 类型。保留裸标识符写法是刻意的：打包器（Vite / webpack）会把 `process.env.NODE_ENV` 静态
+ * 替换成字面量，生产构建里整段提示随之被消除；改成 `globalThis` 间接取值就替换不掉了，提示会跟着
+ * 进生产包。
+ * @en Only the shape this module needs is declared, so consumers do not need `@types/node` — this
+ * library ships `src/`, and their project may not have node types. The bare identifier is
+ * deliberate: bundlers (Vite / webpack) statically replace `process.env.NODE_ENV`, which lets the
+ * whole hint be eliminated from production builds. Reading it through `globalThis` defeats that
+ * replacement and ships the hint to production.
+ */
+declare const process: {env: Record<string, string | undefined>}
+
+/**
+ * @zh 是否为生产构建。取不到 `process` 时（原生 ESM、直接跑在浏览器里）按开发处理：
+ * 多一条提示只是噪音，少一条提示会让人查不出问题。
+ * @en Whether this is a production build. When `process` is unavailable (native ESM, running
+ * straight in a browser) it counts as development: a redundant hint is noise, a missing one costs
+ * a debugging session.
+ */
+const isProduction = (): boolean => {
+  try {
+    return process.env.NODE_ENV === 'production'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * @zh 开发期提示：selector 每次都返回新引用，但内容浅比较相等。这正是「改了不相关字段却触发
+ * 重渲染」的症状，对着 console 很难看出所以然，所以在源头点出来。
+ * @en Development-time hint: the selector returns a new reference each call while the contents are
+ * shallow-equal. That is exactly the "an unrelated field re-rendered me" symptom, which is hard to
+ * diagnose from the console alone, so it is called out at the source.
+ */
+const warnFreshReferenceSelection = (): void => {
+  console.warn(
+    '[createExternalState] useSelector: the selector returned a new reference whose contents are shallow-equal to the previous slice, so this render was triggered by a change the component does not depend on. Pass an isEqual (e.g. shallowEqual) as the second argument to skip such renders.',
+  )
+}
+
+/**
  * @zh 已提交的切片。用 `null` 表示「还没提交过」——不能拿 `undefined` 当哨兵，因为
  * `undefined` 也可能是合法的切片值。
  * @en The committed slice. `null` means "nothing committed yet"; `undefined` cannot be the
@@ -218,6 +282,8 @@ function useSelectedSlice<T, S>(
   isEqual?: EqualityFn<S>,
 ): S {
   const committedRef = useRef<CommittedSelection<S> | null>(null)
+  // 开发提示只报一次，避免每次重渲染都刷屏
+  const warnedRef = useRef(false)
 
   const getSelection = useMemo(() => {
     let hasMemo = false
@@ -244,6 +310,16 @@ function useSelectedSlice<T, S>(
 
       const nextSelection = selector(nextState)
       if (isEqual?.(memoSelection, nextSelection)) return memoSelection
+      // 只在调用方没给 isEqual 时提示：给了相等函数说明是明确取舍，不必再劝
+      if (
+        !warnedRef.current &&
+        !isEqual &&
+        !isProduction() &&
+        shallowEqual(memoSelection, nextSelection)
+      ) {
+        warnedRef.current = true
+        warnFreshReferenceSelection()
+      }
       memoState = nextState
       memoSelection = nextSelection
       return nextSelection
@@ -308,9 +384,10 @@ export function createExternalState<T>(
 ): ExternalState<T> {
   let state: T = typeof initialState === 'function' ? (initialState as () => T)() : initialState
 
-  const storeListeners: (() => void)[] = []
-  const gatedListeners: GatedListener<T>[] = []
-  const {onSet, onChange} = options
+  // 注册表用 Set：挂载/卸载频繁时，退订是 O(1) 而不是 indexOf + splice 的 O(N)
+  const storeListeners = new Set<() => void>()
+  const gatedListeners = new Set<GatedListener<T>>()
+  const {onSet, onChange, notify: notifyMode = 'sync'} = options
 
   const runCallback = (
     callback: ExternalStateCallback<T> | undefined,
@@ -318,9 +395,19 @@ export function createExternalState<T>(
     prevState: T,
   ) => {
     if (!callback) return
-    safePromiseTry(callback, newState, prevState).catch((error) => {
+    let result: unknown
+    try {
+      result = callback(newState, prevState)
+    } catch (error) {
       console.error('Error in external state callback, Please do it within side effects:', error)
-    })
+      return
+    }
+    // 只有真的返回 thenable 才挂 catch：同步回调不该在每次 set 上白分配一个 Promise
+    if (result !== null && typeof (result as PromiseLike<unknown>)?.then === 'function') {
+      Promise.resolve(result as PromiseLike<unknown>).catch((error) => {
+        console.error('Error in external state callback, Please do it within side effects:', error)
+      })
+    }
   }
 
   const get = () => {
@@ -331,12 +418,9 @@ export function createExternalState<T>(
   const getSnapshot = () => state
 
   const subscribe = (listener: () => void) => {
-    storeListeners.push(listener)
+    storeListeners.add(listener)
     return () => {
-      const index = storeListeners.indexOf(listener)
-      if (index > -1) {
-        storeListeners.splice(index, 1)
-      }
+      storeListeners.delete(listener)
     }
   }
 
@@ -349,35 +433,71 @@ export function createExternalState<T>(
     // 订阅时就取一次切片作为比较基准
     const currentSlice = selector(state)
     const record: GatedListener<T> = {selector, listener, isEqual, lastSlice: currentSlice}
-    gatedListeners.push(record)
+    gatedListeners.add(record)
 
     if (fireImmediately) {
       listener(currentSlice, currentSlice)
     }
 
     return () => {
-      const index = gatedListeners.indexOf(record)
-      if (index > -1) {
-        gatedListeners.splice(index, 1)
+      gatedListeners.delete(record)
+    }
+  }
+
+  const notifySafely = (listener: () => void) => {
+    // 单个订阅者抛错不能掐断整条通知链：那会让排在它后面的订阅者收不到更新，
+    // 也会让位于通知之后的 onSet / onChange（含 createStorageState 的落盘）整个不执行。
+    try {
+      listener()
+    } catch (error) {
+      console.error('Error in external state subscriber, it has been skipped:', error)
+    }
+  }
+
+  const flushSubscribers = () => {
+    // 遍历副本：订阅者在通知过程中退订「排在它前面」的订阅者时，活集合的删除会让后面尚未
+    // 访问的订阅者被整体跳过（漏通知）。多调一次是安全的，漏调一次不是。
+    for (const listener of [...storeListeners]) {
+      notifySafely(listener)
+    }
+
+    // 门控订阅者：切片没变就不回调。这里同样遍历副本，selector 与 listener 各自兜底。
+    for (const record of [...gatedListeners]) {
+      try {
+        const nextSlice = record.selector(state)
+        if (record.isEqual(record.lastSlice, nextSlice)) continue
+        const prevSlice = record.lastSlice
+        record.lastSlice = nextSlice
+        record.listener(nextSlice, prevSlice)
+      } catch (error) {
+        console.error('Error in external state selector subscriber, it has been skipped:', error)
       }
     }
+  }
+
+  // microtask 模式的合并标记：同一轮任务内只安排一次通知
+  let flushScheduled = false
+  const scheduleFlush = () => {
+    if (flushScheduled) return
+    flushScheduled = true
+    Promise.resolve().then(() => {
+      // 先复位再通知：订阅者在通知里再次 set 时会安排下一轮，不会丢通知
+      flushScheduled = false
+      flushSubscribers()
+    })
   }
 
   const set = (newState: T | ((prevState: T) => T)) => {
     const prevState = state
     state = typeof newState === 'function' ? (newState as (prev: T) => T)(prevState) : newState
 
-    storeListeners.forEach((listener) => listener())
-
-    // 门控订阅者：切片没变就不回调。遍历副本，避免回调里退订/订阅导致后面的订阅者被跳过。
-    for (const record of [...gatedListeners]) {
-      const nextSlice = record.selector(state)
-      if (record.isEqual(record.lastSlice, nextSlice)) continue
-      const prevSlice = record.lastSlice
-      record.lastSlice = nextSlice
-      record.listener(nextSlice, prevSlice)
+    if (notifyMode === 'microtask') {
+      scheduleFlush()
+    } else {
+      flushSubscribers()
     }
 
+    // state 已经变更，落盘与回调必须完成：上面的通知失败只影响通知本身
     runCallback(onSet, state, prevState)
     if (!Object.is(state, prevState)) {
       runCallback(onChange, state, prevState)
@@ -406,7 +526,10 @@ export function createExternalState<T>(
     useSelector,
     subscribe,
     subscribeWithSelector,
-    __listeners: storeListeners,
+    // 投影成数组（每次访问都是快照），注册表本身是 Set
+    get __listeners() {
+      return [...storeListeners]
+    },
   }
 
   return store
@@ -415,7 +538,29 @@ export function createExternalState<T>(
 export interface StorageStateOptions<T> {
   onSet?: ExternalStateCallback<T>
   onChange?: ExternalStateCallback<T>
-  storageType: 'local' | 'session'
+  /**
+   * @zh 使用 localStorage（默认）或 sessionStorage。
+   * @en Use localStorage (default) or sessionStorage.
+   */
+  storageType?: 'local' | 'session'
+  /**
+   * @zh 是否跟随其它标签页的写入：监听 `storage` 事件，把别的标签页写入的值同步进来。同步走 `set`，
+   * 因此 `onSet` / `onChange` 照常触发，`useSelector` 那套切片订阅也照常工作。
+   *
+   * 默认关闭：不跨标签页同步是既有行为，而且这个事件只在多个标签页共享同一份存储时才有意义
+   * （`sessionStorage` 是每标签页独立的，开了也收不到事件）。对方删除该键或调用 `clear()` 时状态回到
+   * `initialState`，并且不会把初值写回存储——否则每个还开着的标签页都会把对方清掉的内容重新写上去。
+   * @en Whether to follow writes from other tabs: listen for `storage` events and apply values
+   * written elsewhere. The value goes through `set`, so `onSet` / `onChange` fire as usual and the
+   * `useSelector` slice subscriptions keep working.
+   *
+   * Off by default: not syncing is the established behavior, and the event only exists when several
+   * tabs share one storage area (`sessionStorage` is per-tab, so enabling it there has no effect).
+   * When another tab removes the key or calls `clear()`, the state returns to `initialState` and the
+   * initial value is **not** written back — otherwise every remaining tab would resurrect what the
+   * other tab just cleared.
+   */
+  syncAcrossTabs?: boolean
 }
 
 export function createStorageState<T>(
@@ -423,17 +568,24 @@ export function createStorageState<T>(
   initialState: T,
   options?: StorageStateOptions<T>,
 ) {
-  const {storageType = 'local', onSet, onChange} = options ?? {}
+  const {storageType = 'local', onSet, onChange, syncAcrossTabs = false} = options ?? {}
   let _initState: T = initialState
+  // 上一次写入存储的序列化结果。set 到一个内容相同的新对象很常见，而每次 set 都全量
+  // 序列化并落盘是这条链路上最贵的一步，内容没变就没有写的必要。
+  let lastSerialized: string | undefined
+
+  const resolveStorage = (): Storage => (storageType === 'local' ? localStorage : sessionStorage)
 
   // 只在客户端环境中读取存储
   if (typeof window !== 'undefined') {
-    const storage = storageType === 'local' ? localStorage : sessionStorage
-    const storedValue = storage.getItem(key)
+    const storedValue = resolveStorage().getItem(key)
     if (storedValue) {
       try {
         _initState = JSON.parse(storedValue)
+        // 解析成功说明存储里的内容就是当前值，把它作为基准，之后的等值写入可以直接跳过
+        lastSerialized = storedValue
       } catch (error) {
+        // 解析失败时不设基准，让下一次 set 覆写掉这条坏数据
         console.warn(
           `Failed to parse ${storageType}Storage value for key "${key}", using initial state:`,
           error,
@@ -443,15 +595,49 @@ export function createStorageState<T>(
     }
   }
 
-  return createExternalState(_initState, {
+  const store = createExternalState(_initState, {
     onSet: (newState, prevState) => {
       // 只在客户端环境中写入存储
       if (typeof window !== 'undefined') {
-        const storage = storageType === 'local' ? localStorage : sessionStorage
-        storage.setItem(key, JSON.stringify(newState))
+        const serialized = JSON.stringify(newState)
+        // state 本身是 undefined 时 JSON.stringify 返回 undefined，此时基准也是 undefined，
+        // 于是不会写入——旧行为会写入字符串 "undefined"，而它在读回时又要走解析失败的告警分支
+        if (serialized !== lastSerialized) {
+          lastSerialized = serialized
+          resolveStorage().setItem(key, serialized)
+        }
       }
       onSet?.(newState, prevState)
     },
     onChange,
   })
+
+  if (syncAcrossTabs && typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+      // 只认自己那份存储：localStorage 与 sessionStorage 完全可能有同名键
+      if (event.storageArea && event.storageArea !== resolveStorage()) return
+      // key 为 null 表示对方调用了 clear()，其余情况只认自己的键
+      if (event.key !== key && event.key !== null) return
+
+      if (event.newValue === null) {
+        // 对方删除该键或清空存储：基准对齐到初值，这样回到初值时不会又写回去
+        lastSerialized = JSON.stringify(initialState)
+        store.set(initialState)
+        return
+      }
+
+      // 先把基准对齐到对方写入的原文：sync 模式下 onSet 会据此跳过写回，不会两个标签页来回弹
+      lastSerialized = event.newValue
+      try {
+        store.set(JSON.parse(event.newValue) as T)
+      } catch (error) {
+        console.warn(
+          `Failed to parse ${storageType}Storage value for key "${key}" from another tab, ignored:`,
+          error,
+        )
+      }
+    })
+  }
+
+  return store
 }

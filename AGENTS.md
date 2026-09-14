@@ -36,9 +36,15 @@ src/
 
 ### `createExternalState` 设计模式
 
-模块级单例状态，通过手动维护 listener 数组实现跨组件同步。`__listeners` 只存在于内部类型 `ExternalWithKernel` 上（`createExternalState` 的返回类型仍是 `ExternalState`），仅供测试使用，不属于公开 API；它只统计原始订阅者（`useState` / `useSelector` / `subscribe`），`subscribeWithSelector` 的门控订阅者另存一处，不计入其中。
+模块级单例状态，通过手动维护订阅者集合实现跨组件同步。注册表是 `Set`（退订 O(1)），`__listeners` 只存在于内部类型 `ExternalWithKernel` 上（`createExternalState` 的返回类型仍是 `ExternalState`），是集合的投影快照（每次访问都是新数组），仅供测试使用，不属于公开 API；它只统计原始订阅者（`useState` / `useSelector` / `subscribe`），`subscribeWithSelector` 的门控订阅者另存一个集合，不计入其中。
 
 细粒度订阅（`useSelector`）不改变 `set` 的广播语义，而是在消费者侧做切片缓存：`getSnapshot` 返回「selector 计算 + 相等性比较」后的切片，与上一次**已提交**的切片相等时沿用旧引用，`useSyncExternalStore` 逐引用比较后不调度重渲染。因此任何让 selector 在无关字段变化时返回新引用的改动都会破坏这层优化，需要同步检查相等性函数（`isEqual` / `shallowEqual`）。
+
+`set` 里有两处不显然的约束，改动前请先读注释：通知统一走 `flushSubscribers`，按「原生订阅者 → 门控订阅者 → `onSet` → `onChange`」推进，每个订阅者单独 try/catch（一个订阅者抛错不能让后面的组件收不到更新，也不能让 `createStorageState` 的落盘被跳过）；两个订阅者集合都遍历**副本**（订阅者在通知过程中退订「排在它前面」的订阅者时，活集合的删除会让后面尚未访问的订阅者被整体跳过；副本的代价是每次 `set` 一次数组分配）。`onSet` / `onChange` 始终逐次同步执行，即使是 `notify: 'microtask'` 模式——落盘与用户回调不属于「通知」。
+
+`createStorageState` 的 `lastSerialized` 同时被三条路径维护：创建时从存储恢复成功的原文作为基准、每次真正写入后更新、其它标签页的 `storage` 事件在 `store.set` **之前**对齐（否则 `onSet` 会把远端值再写回去，两个标签页来回弹）。改动这段前先确认这三处仍然一致。
+
+`isProduction()` 刻意用裸标识符读 `process.env.NODE_ENV`，配合模块内 `declare const process`（不引入 `@types/node` 依赖）：打包器会静态替换这个字面量，从而在生产构建里消除 `useSelector` 的开发提示。改成 `globalThis.process?.env?.NODE_ENV` 之类就替换不掉，提示会跟着进生产包。
 
 ### `If` / `Switch` 组件的 displayName 匹配
 

@@ -628,7 +628,10 @@ Development notes: Internally implemented via `mediaQuery`, it does not listen t
 - `createStorageState<T>(key, initialState, options?)`: Creates persisted state
   - `options.onSet`: Invoked on every `set()` (storage write happens first, then the user callback)
   - `options.onChange`: Invoked only when the value actually changes
-  - `options.storageType`: `'local'` | `'session'`, defaults to `'local'`
+  - `options.storageType`: `'local'` | `'session'`, optional, defaults to `'local'`
+  - `options.syncAcrossTabs` (v1.5.0+): follow writes from other tabs, off by default. When on, `storage` events apply the other tab's value through `set` (`onSet` / `onChange` / `useSelector` keep working); the remote value is never written back, and a remote removal / `clear()` returns the state to `initialState` without resurrecting it in storage. `sessionStorage` is per-tab, so no such event arrives
+
+> v1.5.0: a write whose serialized result matches what is already stored is skipped. Setting an equal-content object is common, and re-serializing plus rewriting the whole value on every `set` is the expensive step on this path. The value restored at creation counts as the baseline; a parse failure leaves no baseline so the next `set` overwrites the bad entry.
 
 ```tsx
 import { createExternalState } from "@wwog/react";
@@ -699,6 +702,7 @@ A `set` still notifies every subscriber, but each consumer only compares its own
   - `initialState`: Initial state value
   - `options.onSet`: Optional callback invoked on every `set()` call, even when the value is unchanged
   - `options.onChange`: Optional callback invoked only when the stored value actually changes (compared via `Object.is`)
+  - `options.notify` (v1.5.0+): when subscribers are notified — `'sync'` (default, done before `set` returns) or `'microtask'` (several `set` calls in one task notify once, intermediate states skipped, while `onSet` / `onChange` still run for every `set`)
   - Returns an object with methods:
     - `get()`: Get the current state value
     - `set(newState)`: Update the state value
@@ -707,6 +711,12 @@ A `set` still notifies every subscriber, but each consumer only compares its own
     - `useSelector(selector, isEqual?)` (v1.5.0+): Subscribe to the slice returned by `selector`; no re-render while it compares equal. `isEqual` defaults to `Object.is`
     - `subscribe(listener)` (v1.5.0+): Subscribe to any change outside components; returns an unsubscribe function
     - `subscribeWithSelector(selector, listener, options?)` (v1.5.0+): Slice subscription outside components, with `options.isEqual` / `options.fireImmediately`; on the first change `prevSlice` is the slice as of subscribing
+
+> `set` must be given a **new reference**: `set((prev) => { prev.list.push(x); return prev })` compares `Object.is`-equal to the previous value, counts as "unchanged", and notifies nobody.
+
+> A subscriber (`subscribe` / `subscribeWithSelector`) that throws is caught, logged with `console.error`, and skipped so the remaining subscribers are still notified — and the `onSet` / `onChange` callbacks, which run after notification, still execute.
+
+> In development, a `useSelector` whose selector returns a new reference with shallow-equal contents warns once per hook and suggests passing `isEqual`. The check reads the bare `process.env.NODE_ENV`, which Vite/webpack replace at build time, so the hint is dropped from production builds; where nothing replaces it and `process` is absent (native ESM, esbuild without `define`), it counts as development and the hint shows.
 
   Use cases:
 

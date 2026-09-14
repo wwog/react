@@ -692,10 +692,17 @@ stop();
   - `initialState`: 初始状态值
   - `options.onSet`: 可选回调，每次调用 `set()` 后触发，即使值未发生变化
   - `options.onChange`: 可选回调，仅在内部存储值实际发生变化时触发（通过 `Object.is` 比较）
+  - `options.notify` (v1.5.0+): 通知订阅者的时机，`'sync'`（默认，`set` 返回前通知完毕）/ `'microtask'`（同一轮任务内多次 `set` 只通知一次，中间态被跳过，`onSet` / `onChange` 仍逐次同步执行）
   - `useSelector(selector, isEqual?)` (v1.5.0+): 只订阅 selector 选出的切片，切片相等时不重渲染，`isEqual` 默认 `Object.is`
   - `useGetter()` (v1.2.13+): 只返回整份 state 的值
   - `subscribe(listener)` (v1.5.0+): 组件外订阅任意变化，返回退订函数
   - `subscribeWithSelector(selector, listener, options?)` (v1.5.0+): 组件外按切片订阅，`options.isEqual` / `options.fireImmediately`；首次变化时 `prevSlice` 是订阅时的切片
+
+> `set` 必须给出**新引用**：`set((prev) => { prev.list.push(x); return prev })` 这种原地修改与旧值 `Object.is` 相等，会被判定为「没有变化」，订阅者不会收到通知。
+
+> 订阅者（`subscribe` / `subscribeWithSelector`）抛错会被捕获并 `console.error` 记录，然后跳过它继续通知其余订阅者，排在通知之后的 `onSet` / `onChange` 也照常执行。
+
+> 开发构建下，若 `useSelector` 的 selector 每次都返回新引用、但内容浅比较相等，会按 hook 实例提示一次并建议传 `isEqual`。判定读的是裸标识符 `process.env.NODE_ENV`，Vite/webpack 会在构建期替换它，因此这段提示会从生产构建里被消除；没有这层替换、又取不到 `process` 时（原生 ESM、esbuild 未配 `define`）按开发处理，提示会出现。
 
 #### `shallowEqual` (v1.5.0+)
 
@@ -721,7 +728,10 @@ const head = appState.useSelector((s) => ({ name: s.name, age: s.age }), shallow
 - `createStorageState<T>(key, initialState, options?)`: 创建持久化状态
   - `options.onSet`: 每次 `set()` 后触发（持久化写入在此阶段完成，之后调用用户回调）
   - `options.onChange`: 仅在值实际变化时触发
-  - `options.storageType`: `'local'` | `'session'`，默认 `'local'`
+  - `options.storageType`: `'local'` | `'session'`，可选，默认 `'local'`
+  - `options.syncAcrossTabs` (v1.5.0+): 跟随其它标签页的写入，默认关闭。开启后监听 `storage` 事件，把其它标签页写入的值经 `set` 同步进来（`onSet` / `onChange` / `useSelector` 照常工作）；远端值不会被写回，对方删除该键或 `clear()` 时回到初值且不写回。`sessionStorage` 是每标签页独立的，收不到该事件
+
+> v1.5.0: 序列化结果与已存内容相同时跳过写入。`set` 一个内容相同的新对象很常见，而每次 `set` 都全量 `JSON.stringify` 再落盘是这条链路上最贵的一步；创建时从存储恢复的值会作为基准，解析失败则不设基准，让下一次 `set` 覆写坏数据。
 
 #### `formatDate`
 

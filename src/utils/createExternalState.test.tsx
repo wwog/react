@@ -427,6 +427,70 @@ describe("useSelector", () => {
     expect(state.__listeners.length).toBe(0);
   });
 
+  it("测试 selector 返回新引用且浅比较相等时给出开发警告", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const state = createAppState();
+
+    function FreshRefView() {
+      // 故意不给 isEqual:每次都是新对象,无关字段变化也会重渲染
+      const head = state.useSelector((s) => ({ name: s.name, age: s.age }));
+      return <span data-testid="head">{`${head.name}:${head.age}`}</span>;
+    }
+
+    const { getByText } = render(
+      <>
+        <FreshRefView />
+        <button onClick={() => state.set((prev) => ({ ...prev, theme: "dark" }))}>
+          write theme
+        </button>
+        <button onClick={() => state.set((prev) => ({ ...prev, age: prev.age + 1 }))}>
+          write age
+        </button>
+      </>
+    );
+
+    // 挂载本身不算「无关变化」
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    // 改无关字段:切片只因引用变化被判为「变了」→ 提示一次
+    await getByText("write theme").click();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    // 同一 hook 实例不重复刷屏
+    await getByText("write theme").click();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    // 改相关字段时不再提示(切片内容真的变了,不是这个坑)
+    await getByText("write age").click();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+
+    warnSpy.mockRestore();
+  });
+
+  it("测试给了 isEqual 时不会给出开发警告", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const state = createAppState();
+
+    function ShallowRefView() {
+      const head = state.useSelector((s) => ({ name: s.name, age: s.age }), shallowEqual);
+      return <span data-testid="head">{`${head.name}:${head.age}`}</span>;
+    }
+
+    const { getByText } = render(
+      <>
+        <ShallowRefView />
+        <button onClick={() => state.set((prev) => ({ ...prev, theme: "dark" }))}>
+          write theme
+        </button>
+      </>
+    );
+
+    await getByText("write theme").click();
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
   it("测试 subscribe 在任意变化时触发并支持退订", () => {
     const state = createAppState();
     const listener = vi.fn();
@@ -515,6 +579,184 @@ describe("useSelector", () => {
     await getByText("write world").click();
     expect(lengthRenders).toBe(baseline + 1);
     expect(localStorage.getItem("selector-key")).toBe('"world"');
+  });
+});
+
+describe("通知与容错", () => {
+  it("测试单个订阅者抛错不影响其他订阅者与回调", () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onSet = vi.fn();
+    const state = createExternalState<number>(0, { onSet });
+
+    const rawGood = vi.fn();
+    state.subscribe(() => {
+      throw new Error("raw listener boom");
+    });
+    state.subscribe(rawGood);
+
+    const gatedGood = vi.fn();
+    // 门控 listener 抛错
+    state.subscribeWithSelector(
+      (s) => s,
+      () => {
+        throw new Error("gated listener boom");
+      }
+    );
+    // 门控 selector 抛错:订阅时会先算一次基准切片,所以让它只在状态变化后抛,
+    // 这样抛错点在 set 的循环里(订阅时抛错会直接冒泡给调用方,且不会留下注册项)
+    state.subscribeWithSelector((s: number): number => {
+      if (s > 0) {
+        throw new Error("gated selector boom");
+      }
+      return s;
+    }, vi.fn());
+    state.subscribeWithSelector(
+      (s) => s * 10,
+      gatedGood
+    );
+
+    state.set(1);
+
+    // 后面的订阅者与 onSet 都必须照常执行
+    expect(rawGood).toHaveBeenCalledTimes(1);
+    expect(gatedGood).toHaveBeenCalledWith(10, 0);
+    expect(onSet).toHaveBeenCalledWith(1, 0);
+    // 三处抛错各自被记录,而不是中断整条通知链
+    expect(consoleSpy).toHaveBeenCalledTimes(3);
+    consoleSpy.mockRestore();
+  });
+
+  it("测试订阅者抛错时 storage 仍会写入", () => {
+    localStorage.clear();
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const state = createStorageState("throw-key", "");
+
+    state.subscribe(() => {
+      throw new Error("boom");
+    });
+    state.set("saved");
+
+    // 落盘由 onSet 完成,它排在通知之后,不能被前面的抛错掐掉
+    expect(localStorage.getItem("throw-key")).toBe('"saved"');
+    expect(state.get()).toBe("saved");
+    consoleSpy.mockRestore();
+  });
+
+  it("测试通知过程中退订其他订阅者不会漏通知", () => {
+    const state = createExternalState<number>(0) as ExternalWithKernel<number>;
+    const calls: string[] = [];
+
+    let unsubscribeFirst = () => {};
+    unsubscribeFirst = state.subscribe(() => {
+      calls.push("A");
+    });
+    // B 退订了排在它前面的 A:活数组的 splice 会让后面尚未访问的订阅者被跳过
+    state.subscribe(() => {
+      calls.push("B");
+      unsubscribeFirst();
+    });
+    state.subscribe(() => {
+      calls.push("C");
+    });
+
+    state.set(1);
+
+    expect(calls).toEqual(["A", "B", "C"]);
+    expect(state.__listeners.length).toBe(2);
+  });
+
+  it("测试 notify: microtask 时同一轮多次 set 只通知一次", async () => {
+    const onSet = vi.fn();
+    const state = createExternalState<number>(0, { notify: "microtask", onSet });
+    const listener = vi.fn();
+    const gated = vi.fn();
+    state.subscribe(listener);
+    state.subscribeWithSelector((s) => s, gated);
+
+    state.set(1);
+    state.set(2);
+    state.set(3);
+
+    // 通知在微任务里:set 返回时订阅者还没收到,但回调是逐次同步的
+    expect(listener).not.toHaveBeenCalled();
+    expect(gated).not.toHaveBeenCalled();
+    expect(onSet).toHaveBeenCalledTimes(3);
+    expect(state.get()).toBe(3);
+
+    await Promise.resolve();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(gated).toHaveBeenCalledTimes(1);
+    // 中间态被跳过:prevSlice 仍是订阅时的切片
+    expect(gated).toHaveBeenCalledWith(3, 0);
+
+    // 下一轮会重新安排,基准随之上移
+    state.set(4);
+    await Promise.resolve();
+    expect(gated).toHaveBeenCalledTimes(2);
+    expect(gated).toHaveBeenCalledWith(4, 3);
+  });
+
+  it("测试 notify: microtask 下组件仍会更新", async () => {
+    const state = createExternalState({ count: 0 }, { notify: "microtask" });
+
+    function Counter() {
+      const count = state.useSelector((s) => s.count);
+      return <span data-testid="count">{count}</span>;
+    }
+
+    const { getByTestId } = render(<Counter />);
+    expect(getByTestId("count").element().textContent).toBe("0");
+
+    state.set({ count: 1 });
+    state.set({ count: 2 });
+
+    await vi.waitFor(() => {
+      expect(getByTestId("count").element().textContent).toBe("2");
+    });
+  });
+
+  it("测试回调抛错被捕获:同步抛错立刻记录,异步拒绝稍后记录", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const syncOnSet = vi.fn(() => {
+      throw new Error("sync boom");
+    });
+    const asyncOnChange = vi.fn(() => Promise.reject(new Error("async boom")));
+    const state = createExternalState<number>(0, { onSet: syncOnSet, onChange: asyncOnChange });
+
+    state.set(1);
+
+    // 同步抛错在 set 返回时就已记录
+    expect(syncOnSet).toHaveBeenCalledTimes(1);
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+
+    // 返回的 Promise 被拒绝时也记录,不会变成未处理的 rejection
+    await vi.waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledTimes(2);
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it("测试大量订阅与退订后通知次数正确", () => {
+    const state = createExternalState<number>(0) as ExternalWithKernel<number>;
+    const listeners = Array.from({ length: 100 }, () => vi.fn());
+    const unsubscribers = listeners.map((listener) => state.subscribe(listener));
+
+    expect(state.__listeners.length).toBe(100);
+
+    unsubscribers.forEach((unsubscribe, index) => {
+      if (index % 2 === 1) unsubscribe();
+    });
+    expect(state.__listeners.length).toBe(50);
+
+    state.set(1);
+
+    listeners.forEach((listener, index) => {
+      if (index % 2 === 0) {
+        expect(listener).toHaveBeenCalledTimes(1);
+      } else {
+        expect(listener).not.toHaveBeenCalled();
+      }
+    });
   });
 });
 
@@ -668,5 +910,168 @@ describe("createStorageState", () => {
 
     expect(localStorage.getItem("default-key")).toBe('"default-updated"');
     expect(sessionStorage.getItem("default-key")).toBeNull();
+  });
+
+  it("测试序列化结果未变时跳过重复写入", () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    const state = createStorageState("skip-key", { count: 0, list: [1] });
+
+    // 存储里还没有内容:第一次写入照常落盘,建立基准
+    state.set({ count: 0, list: [1] });
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("skip-key")).toBe('{"count":0,"list":[1]}');
+
+    state.set({ count: 1, list: [1] });
+    expect(setItemSpy).toHaveBeenCalledTimes(2);
+
+    // 内容相同的另一个对象:序列化结果一致,不落盘
+    state.set({ count: 1, list: [1] });
+    expect(setItemSpy).toHaveBeenCalledTimes(2);
+
+    // 内容真的变了:照常落盘
+    state.set({ count: 2, list: [1] });
+    expect(setItemSpy).toHaveBeenCalledTimes(3);
+    expect(localStorage.getItem("skip-key")).toBe('{"count":2,"list":[1]}');
+
+    setItemSpy.mockRestore();
+  });
+
+  it("测试从存储恢复后,等值写入不再重复落盘", () => {
+    localStorage.setItem("restore-key", '{"a":1}');
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    const state = createStorageState("restore-key", { a: 0 });
+
+    expect(state.get()).toEqual({ a: 1 });
+
+    state.set({ a: 1 });
+    expect(setItemSpy).not.toHaveBeenCalled();
+
+    setItemSpy.mockRestore();
+  });
+
+  it("测试解析失败后下一次 set 会覆写坏数据", () => {
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    localStorage.setItem("bad-key", "not-json");
+
+    const state = createStorageState("bad-key", "fallback");
+    state.set("fixed");
+
+    expect(localStorage.getItem("bad-key")).toBe('"fixed"');
+    expect(state.get()).toBe("fixed");
+    consoleSpy.mockRestore();
+  });
+
+  it("测试省略 storageType 时默认为 local", () => {
+    const onSet = vi.fn();
+    const state = createStorageState<string>("onset-only-key", "initial", { onSet });
+
+    state.set("next");
+
+    expect(localStorage.getItem("onset-only-key")).toBe('"next"');
+    expect(sessionStorage.getItem("onset-only-key")).toBeNull();
+    expect(onSet).toHaveBeenCalledWith("next", "initial");
+  });
+});
+
+describe("跨标签页同步", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  /** 模拟「另一个标签页写了同一个键」——storage 事件只在其它标签页触发,测试里手动派发 */
+  const dispatchStorage = (init: StorageEventInit) => {
+    window.dispatchEvent(new StorageEvent("storage", init));
+  };
+
+  it("测试 syncAcrossTabs 跟随其它标签页的写入,且不写回存储", () => {
+    localStorage.setItem("tab-key", JSON.stringify("old"));
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    const onChange = vi.fn();
+    const state = createStorageState<string>("tab-key", "initial", {
+      syncAcrossTabs: true,
+      onChange,
+    });
+
+    dispatchStorage({
+      key: "tab-key",
+      newValue: JSON.stringify("new"),
+      storageArea: localStorage,
+    });
+
+    expect(state.get()).toBe("new");
+    expect(onChange).toHaveBeenCalledWith("new", "old");
+    // 远端值不该被写回存储,否则两个标签页会来回弹
+    expect(setItemSpy).not.toHaveBeenCalled();
+
+    setItemSpy.mockRestore();
+  });
+
+  it("测试跨标签页同步只认自己那份存储", () => {
+    const state = createStorageState<string>("tab-key-area", "initial", {
+      syncAcrossTabs: true,
+    });
+
+    // 同名键但来自 sessionStorage:不能应用到 localStorage 上的 store
+    dispatchStorage({
+      key: "tab-key-area",
+      newValue: JSON.stringify("from-session"),
+      storageArea: sessionStorage,
+    });
+    expect(state.get()).toBe("initial");
+
+    dispatchStorage({
+      key: "tab-key-area",
+      newValue: JSON.stringify("from-local"),
+      storageArea: localStorage,
+    });
+    expect(state.get()).toBe("from-local");
+  });
+
+  it("测试未开启 syncAcrossTabs 时忽略 storage 事件", () => {
+    const state = createStorageState<string>("tab-key-off", "initial");
+
+    dispatchStorage({ key: "tab-key-off", newValue: JSON.stringify("other") });
+
+    expect(state.get()).toBe("initial");
+  });
+
+  it("测试跨标签页同步忽略其它键,clear 时回到初值且不写回", () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
+    const state = createStorageState<string>("tab-key-clear", "initial", {
+      syncAcrossTabs: true,
+    });
+
+    // 别的键:忽略
+    dispatchStorage({ key: "other-key", newValue: JSON.stringify("x") });
+    expect(state.get()).toBe("initial");
+
+    state.set("changed");
+    expect(state.get()).toBe("changed");
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+
+    // 另一个标签页调用了 clear():key 为 null
+    dispatchStorage({ key: null, newValue: null });
+    expect(state.get()).toBe("initial");
+    // 不回写,避免把对方清掉的内容重新写上去
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+
+    setItemSpy.mockRestore();
+  });
+
+  it("测试跨标签页同步遇到坏数据时忽略并告警", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const state = createStorageState<string>("tab-key-bad", "initial", {
+      syncAcrossTabs: true,
+    });
+
+    dispatchStorage({ key: "tab-key-bad", newValue: "not-json" });
+
+    expect(state.get()).toBe("initial");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("from another tab"),
+      expect.any(Error)
+    );
+    warnSpy.mockRestore();
   });
 });
