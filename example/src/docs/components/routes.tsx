@@ -1,4 +1,5 @@
 import {groups, type DocRoute} from "../types";
+import {FrameRenderDoc} from "./FrameRenderDoc";
 import {NavigationDoc} from "./NavigationDoc";
 import {ProcessControlDoc} from "./ProcessControlDoc";
 import {StructDoc} from "./StructDoc";
@@ -7,7 +8,7 @@ import {SundryRuntimeDoc} from "./SundryRuntimeDoc";
 
 /**
  * components 分组的全部路由（对应 `src/components/`）。
- * 按子目录分页：ProcessControl、Struct、Sundry（较大，拆成基础与交互两页）、Navigation。
+ * 按子目录分页：ProcessControl、Struct、Sundry（较大，拆成基础与交互两页）、Navigation、Performance。
  */
 export const componentsRoutes: DocRoute[] = [
   {
@@ -59,5 +60,15 @@ export const componentsRoutes: DocRoute[] = [
       en: "AppStackRouter · useAppStack / useStackSize / useCanPop · push, pop and swipe-back",
     },
     component: NavigationDoc,
+  },
+  {
+    id: "frame-render",
+    group: groups.components,
+    title: {zh: "性能:帧渲染", en: "Performance: frame render"},
+    blurb: {
+      zh: "FrameRender · 合帧投递、最新值胜出 · fps / leading / trailing · select / compare / shouldCommit",
+      en: "FrameRender · framed delivery, latest wins · fps / leading / trailing · select / compare / shouldCommit",
+    },
+    component: FrameRenderDoc,
   },
 ];
