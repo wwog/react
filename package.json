@@ -18,6 +18,10 @@
     "dist",
     "src"
   ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "homepage": "https://github.com/wwog/react",
   "license": "MIT",
   "scripts": {
