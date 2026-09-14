@@ -1,19 +1,51 @@
 ---
 name: use-wwog-react
-description: When writing or editing React/TSX code in a project that depends on @wwog/react, prefer these declarative components over hand-rolled equivalents. Trigger when: conditional rendering (ternary, &&, switch statements), list rendering (.map + filter + sort + empty state), date formatting, error boundaries, intersection observers, portals, focus traps, class name composition. Do NOT suggest if @wwog/react is not installed.
+description: When writing or editing React/TSX code in a project that depends on @wwog/react, prefer these declarative components and utilities over hand-rolled equivalents. Trigger when: conditional rendering (ternary, &&, multi-branch switch), multi-condition gating, data transformation pipelines, list rendering (.map + filter + sort + empty state), date formatting, error boundaries, intersection observers, portals, focus traps, className composition, controlled/uncontrolled input wiring, responsive breakpoints, mobile stack navigation with back gestures, throttling high-frequency child renders to a frame budget, splitting long tasks and yielding to the main thread, debounce/throttle/rAF scheduling, off-main-thread work in Web Workers, worker pools, memoization, bounded queues and backpressure (drop-oldest / latest-wins), FLIP animations, focusability queries, module-level shared state and localStorage-backed state, timezone-independent weekday math. Do NOT suggest if @wwog/react is not installed.
 ---
 
-# @wwog/react — Declarative React components
+# @wwog/react — declarative components & utilities
 
-When the project depends on `@wwog/react`, **prefer the components below** over hand-rolled patterns. They are more declarative, less error-prone, and the intent reads off the page.
+When the project depends on `@wwog/react`, **prefer the tools below** over hand-rolled patterns. They are more declarative, less error-prone, and the intent reads off the page.
 
-Import everything from the package root:
+> Only use these if `@wwog/react` is already a dependency. If unsure, check `package.json` first — and do not suggest installing it.
+
+Import everything from the package root (`dist/index.js`, ESM; `src/` ships too):
 
 ```tsx
-import { If, Switch, When, ArrayRender, DateRender, Boundary, Observer, Scope, Styles, Toggle, SizeBox, FocusTrap, Portal, Repeat, useControlled, cx } from "@wwog/react"
+import {
+  // flow control
+  If, True, False, When, Switch, Pipe,
+  // structural rendering
+  ArrayRender, DateRender, Repeat,
+  // sundry / runtime
+  Boundary, Observer, Portal, FocusTrap, Scope, Styles, Toggle, SizeBox,
+  // performance & navigation
+  FrameRender, AppStackRouter, useAppStack, useStackSize, useCanPop,
+  // hooks
+  useControlled, useScreen, getCurrentBreakpoint,
+  // utils
+  cx, createExternalState, createStorageState, formatDate, Counter,
+  childrenLoop, safePromiseTry, safePromiseWithResolvers,
+  getTabIndex, isFocusable, isTabbable, getFocusableElements, getTabbableElements,
+  breakpoints, DefBreakpointDesc,
+  yieldToMain, forEachChunked, forEachInFrames,
+  debounce, throttle, rafSchedule, appendBatch, runLayoutBatch,
+  Queue, createPriorityQueue,
+  createDroppingQueue, createLatestValue,
+  memoize, WorkerPool, getWorkerPool, runInWorkerWithPool, disposeWorkerPool, WorkerError,
+  flipAnimate, weekday, weekdayJulian,
+} from "@wwog/react"
 ```
 
-> Only use these if `@wwog/react` is already a dependency. If unsure, check `package.json` first.
+Everything is a **named export** from the root; there are no default exports. Prop interfaces (`IfProps`, `StylesProps`, …) and option/detail types (`FrameRenderProps`, `WorkerRunOptions`, `BreakpointDesc`, `CxInput`, `Responsive<T>`, …) are exported too — import them for typing instead of redeclaring.
+
+### Contents
+
+Components: [1 If/True/False](#1-conditional-rendering-if--true--false) · [2 When](#2-multi-condition-gating-when) · [3 Switch](#3-value-match-rendering-switch) · [4 Pipe](#4-data-pipeline-pipe) · [5 ArrayRender](#5-list-rendering-arrayrender) · [6 Repeat](#6-repeat-repeat) · [7 DateRender](#7-date-rendering-daterender) · [8 Boundary](#8-error-boundary-boundary) · [9 Observer](#9-intersection-observer-observer) · [10 Portal](#10-portal-portal) · [11 FocusTrap](#11-focus-trap-focustrap) · [12 Scope](#12-local-scope-scope) · [13 Toggle](#13-toggle-toggle) · [14 Styles](#14-styles-styles) · [15 SizeBox](#15-sizebox-sizebox) · [16 FrameRender](#16-frame-coalescing-framerender) · [17 AppStackRouter](#17-mobile-stack-navigation-appstackrouter)
+
+Hooks: [18 useControlled](#18-controlleduncontrolled-hook-usecontrolled) · [19 useScreen](#19-responsive-breakpoints-usescreen)
+
+Utils: [20 cx](#20-class-composition-cx) · [21 createExternalState](#21-external-state-createexternalstate--createstoragestate) · [22 formatDate/Counter](#22-date-formatting--counter-formatdate--counter) · [23 promise](#23-promise-helpers-safepromisetry--safepromisewithresolvers) · [24 childrenLoop](#24-childrenloop-childrenloop) · [25 focusable](#25-focusability-queries) · [26 breakpoints](#26-breakpoints--responsive-types) · [27 yield](#27-long-task-splitting-yieldtomain--foreachchunked--foreachinframes) · [28 scheduling](#28-debounce-throttle--raf-scheduling) · [29 queues](#29-queues-queue--createpriorityqueue) · [30 backpressure](#30-backpressure-createdroppingqueue--createlatestvalue) · [31 memoize](#31-memoization-memoize) · [32 workers](#32-off-main-thread-work-workerpool--runinworkerwithpool) · [33 FLIP](#33-flip-animation-flipanimate) · [34 weekday](#34-weekday-math-weekday--weekdayjulian)
 
 ---
 
@@ -33,10 +65,14 @@ import { If, Switch, When, ArrayRender, DateRender, Boundary, Observer, Scope, S
 
 | Prop | Type | Notes |
 |---|---|---|
-| `condition` | `boolean` | top-level gate for `Then` |
-| `children` | `Then \| ElseIf \| Else` | **only** these three accepted; throws otherwise |
+| `condition` | `boolean` | required; gate for `Then` |
+| `children` | `ReactNode` | **must** be valid React elements, and only these three types |
 
-`<If.ElseIf>` takes `condition: boolean`. `<If.Then>`/`<If.Else>` take only `children`.
+**Throws** (at render time) when: a child is not a valid element; more than one `Then`; more than one `Else`; or a child is not `Then`/`ElseIf`/`Else`. Multiple `ElseIf` are allowed and evaluated in declaration order — the first truthy `condition` wins. If `condition` is true but no `Then` is present, it renders nothing.
+
+`<If.ElseIf condition={...}>`, `<If.Then>`, `<If.Else>` take `children` only. Child recognition is by `displayName` string comparison (`If_Then`/`If_Else`/`If_ElseIf`), so don't rename those.
+
+`If.createTyped()` returns `{ If, Then, ElseIf, Else }` for inference; use it when cases need a shared generic.
 
 ### `<True>` / `<False>` — single-branch shortcuts
 
@@ -47,16 +83,18 @@ import { If, Switch, When, ArrayRender, DateRender, Boundary, Observer, Scope, S
 
 | Prop | Type | Notes |
 |---|---|---|
-| `condition` | `boolean` | `True` renders children when truthy; `False` renders when `=== false` |
+| `condition` | `boolean` | `True` renders when truthy; `False` renders only when `condition === false` |
+
+Note the asymmetry: `<False>` uses a **strict** `=== false` check, so `undefined`/`null` do *not* render its children.
 
 **When to pick what:**
 - One branch, truthy → `<True>`
-- One branch, falsy → `&&` is fine, or `<False>`
+- One branch, falsy → plain `&&` is fine, or `<False>` when you specifically mean `=== false`
 - Multiple branches → `<If>` with `ElseIf`/`Else`, **not** nested ternaries
 
 ---
 
-## 2. Multi-condition rendering: `<When>`
+## 2. Multi-condition gating: `<When>`
 
 **Replace:** `a && b && c && <X/>`, `a || b ? <X/> : null`, manual `.every`/`.some`.
 
@@ -76,13 +114,15 @@ import { If, Switch, When, ArrayRender, DateRender, Boundary, Observer, Scope, S
 
 | Prop | Type | Notes |
 |---|---|---|
-| `all` | `boolean[]` | render when every item is truthy |
-| `any` | `boolean[]` | render when at least one is truthy |
-| `none` | `boolean[]` | render when every item is falsy |
-| `children` | `ReactNode` | content when condition satisfied |
-| `fallback` | `ReactNode` | content when not satisfied |
+| `all` | `boolean[]` | render when the array is non-empty and every item is truthy |
+| `any` | `boolean[]` | render when non-empty and at least one item is truthy |
+| `none` | `boolean[]` | render when non-empty and every item is falsy |
+| `children` | `ReactNode` | content when satisfied |
+| `fallback` | `ReactNode` | content when not satisfied (defaults to `null`) |
 
-If `all`, `any`, and `none` are all passed, `all` wins (with a console warning). Pick **one** of the three per usage.
+Evaluation is a fall-through chain, in this order: `all` → `any` → `none`. So passing several is not an error, but it is confusing: it only warns when `all` is combined with `any` or `none`, and despite the warning text, `all` does **not** simply win — if `all` is present but not fully true, `any` and then `none` are still evaluated. **Pass exactly one** of the three.
+
+Empty arrays are falsy: `all={[]}` and `any={[]}` render the fallback (plain JS `[].every()` would be vacuously true).
 
 ---
 
@@ -100,16 +140,51 @@ If `all`, `any`, and `none` are all passed, `all` wins (with a console warning).
 
 | Prop (Switch) | Type | Notes |
 |---|---|---|
-| `value` | `T` | value to match against cases |
+| `value` | `T` | required; value to match against cases |
 | `compare` | `(a: T, b: T) => boolean` | default `===`; use for object/reference matches |
-| `strict` | `boolean` | default `false`; `true` loops all cases for extra error checks (duplicate detection) |
-| `children` | `Case \| Default` | **only** these two accepted |
+| `strict` | `boolean` | default `false`; see below |
+| `children` | `ReactNode` | only `Case` / `Default` elements |
 
-`<Switch.Case>` takes `value: T`. `<Switch.Default>` takes only `children`. Duplicate case values throw. Use `Switch.createTyped<T>()` when you want strict generic inference across cases.
+`<Switch.Case value={v}>` and `<Switch.Default>` take only `children`.
+
+**Error behavior (exact):**
+- Duplicate `Case` values **throw in both modes** — the only difference is that strict appends `" (detected in strict mode)"` to the message.
+- Non-strict stops iterating at the first matching `Case`, so a duplicate appearing *after* the matched case is never detected. Strict always visits every child, so duplicates anywhere are caught.
+- More than one `Default` throws (`Switch can only have one Default child`).
+- A non-element child, or an element that is not `Case`/`Default`, throws with its index.
+
+Renders `matchedChildren ?? defaultChild`, so an unmatched value with no `Default` renders nothing. Set `strict` from the dev environment to get the extra checks in development. Use `Switch.createTyped<T>()` for strict generic inference across cases; it returns `{ Switch, Case, Default }`.
 
 ---
 
-## 4. List rendering: `<ArrayRender>`
+## 4. Data pipeline: `<Pipe>`
+
+**Replace:** an IIFE or a chain of `const` locals in JSX that transforms one value through several steps before rendering.
+
+```tsx
+<Pipe
+  data={users}
+  transform={[
+    (list) => list.filter((u) => u.active),
+    (list) => list.map((u) => u.name),
+  ]}
+  render={(names) => <div>{names.join(", ")}</div>}
+  fallback={<div>No Data</div>}
+/>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `data` | `any` | required; initial value |
+| `transform` | `((input: any) => any)[]` | required; reduced left-to-right over `data` |
+| `render` | `(result: any) => ReactNode` | required; called when the result is not `null`/`undefined` |
+| `fallback` | `ReactNode` | rendered when the final result is `null`/`undefined` (default `null`) |
+
+Transforms are memoized on `[data, transform]`, so an **inline array literal defeats the memo** — hoist the array to module scope or wrap it in `useMemo` when the transforms are stable. `<Pipe>` shares `any`-typed inputs with `<Scope>`; for typed derived values prefer `<Scope>` or a plain local.
+
+---
+
+## 5. List rendering: `<ArrayRender>`
 
 **Replace:** `.map().filter().sort()` chains, manual empty-state checks, `[...items].sort()` boilerplate.
 
@@ -125,148 +200,22 @@ If `all`, `any`, and `none` are all passed, `all` wins (with a console warning).
 
 | Prop | Type | Notes |
 |---|---|---|
-| `items` | `T[]` | required; null logs an error and renders nothing |
+| `items` | `T[]` | required; a falsy value logs `ArrayRender: items is null` and renders nothing |
 | `renderItem` | `(item: T, index: number) => ReactNode` | required |
-| `filter` | `(item: T) => boolean` | optional; in-place when no `sort` |
-| `sort` | `(a: T, b: T) => number` | optional; when present, filter+sort run on a copy first |
-| `renderEmpty` | `() => ReactNode` | optional; shown when filtered result is empty |
+| `filter` | `(item: T) => boolean` | optional |
+| `sort` | `(a: T, b: T) => number` | optional; when present, filter + sort run on a copy first |
+| `renderEmpty` | `() => ReactNode` | optional; rendered when the result is empty |
 
-**Key point:** always set `key` inside `renderItem`, same as `.map`.
+**Index behavior differs by path — this is the trap:**
+- `items.length === 0` short-circuits to `renderEmpty()` before `filter` runs.
+- **With `sort`:** `items` is copied (`[...items]`), filtered, sorted; `renderItem` gets compacted `0..n-1` indices.
+- **Without `sort`:** `items` is *not* mutated, filtering happens during `map`, filtered slots become `null`, and `renderItem` receives the **original** index of each item (so index-based keys can collide with gaps). `renderEmpty` only appears when *every* item was filtered out.
 
----
-
-## 5. Date rendering: `<DateRender>`
-
-**Replace:** manual `new Date(iso)` parsing + `toLocaleString()` + null-guards in JSX.
-
-```tsx
-<DateRender source="2026-07-06T08:00:00Z" format={(d) => d.toLocaleDateString()}>
-  {(formatted) => <time>{formatted}</time>}
-</DateRender>
-
-<DateRender source={createdAt}>
-  {(formatted) => <span>Created at {formatted}</span>}
-</DateRender>
-```
-
-| Prop | Type | Notes |
-|---|---|---|
-| `source` | `Date \| string \| number` | required; invalid input renders nothing |
-| `format` | `(date: Date) => T` | optional; default uses `toLocaleString()` |
-| `children` | `(formatted: T) => ReactNode` | required render-prop |
-
-Invalid dates (NaN) render `null` — no try/catch needed in the JSX.
+`items` is never mutated. Always set `key` inside `renderItem`, as with `.map`.
 
 ---
 
-## 6. Error boundary: `<Boundary>`
-
-**Replace:** writing a class-based `ErrorBoundary` from scratch.
-
-```tsx
-<Boundary fallback={(error, reset) => (
-  <div>
-    <p>Something broke: {error.message}</p>
-    <button onClick={reset}>Retry</button>
-  </div>
-)} onError={(e, info) => reportError(e, info)}>
-  <RiskyChart />
-</Boundary>
-```
-
-| Prop | Type | Notes |
-|---|---|---|
-| `fallback` | `(error: Error, reset: () => void) => ReactNode` | required render-prop |
-| `onError` | `(error: Error, info: React.ErrorInfo) => void` | optional; logging/reporting |
-| `children` | `ReactNode` | subtree to protect |
-
-`reset()` clears the error state and re-renders children.
-
----
-
-## 7. Intersection observer: `<Observer>`
-
-**Replace:** `useEffect` + `new IntersectionObserver(...)` + manual `observe`/`disconnect`.
-
-```tsx
-<Observer onIntersect={loadMore} threshold={0.1} triggerOnce>
-  <div>Loading more…</div>
-</Observer>
-
-<Observer onIntersect={loadImage} triggerOnce>
-  <img data-src="/lazy.jpg" alt="lazy" />
-</Observer>
-```
-
-| Prop | Type | Notes |
-|---|---|---|
-| `onIntersect` | `(entry, observer) => void` | required |
-| `threshold` | `number \| number[]` | default `0.1` |
-| `root` | `Element \| Document \| null` | default viewport (`null`) |
-| `rootMargin` | `string` | default `"0px"` |
-| `triggerOnce` | `boolean` | default `false`; unobserves after first hit |
-| `disabled` | `boolean` | default `false` |
-| `className` / `style` | — | applied to the wrapper div |
-
-Renders a wrapping `<div>`; the ref is internal.
-
----
-
-## 8. Portal: `<Portal>`
-
-**Replace:** manual `createPortal(..., document.body)` + SSR null-guards.
-
-```tsx
-<Portal>
-  <Modal />
-</Portal>
-
-<Portal to={document.getElementById("overlay-root")}>
-  <Tooltip />
-</Portal>
-
-<Portal disabled={isInline}><Callout /></Portal>
-```
-
-| Prop | Type | Notes |
-|---|---|---|
-| `to` | `Element \| null` | default `document.body`; SSR-safe (defers mount) |
-| `children` | `ReactNode` | content to portal |
-| `disabled` | `boolean` | default `false`; renders inline when true |
-
----
-
-## 9. Focus trap: `<FocusTrap>`
-
-**Replace:** custom Tab-key handlers + focus-cycle logic for modals/menus.
-
-```tsx
-<FocusTrap autoFocus restoreFocus>
-  <input />
-  <button>Save</button>
-</FocusTrap>
-
-<FocusTrap keyMap={{ ArrowDown: "next", ArrowUp: "prev" }}>
-  {/* arrow-key navigation across both lists */}
-  <button>A-1</button>
-  <button>B-1</button>
-</FocusTrap>
-```
-
-| Prop | Type | Notes |
-|---|---|---|
-| `children` | `ReactNode` | subtree to trap |
-| `disabled` | `boolean` | default `false` |
-| `autoFocus` | `boolean` | focus first tabbable on mount |
-| `restoreFocus` | `boolean` | restore focus on unmount |
-| `keyMap` | `Partial<Record<string, "next" \| "prev" \| "first" \| "last">>` | default `{ Tab: "next" }`; Shift+Tab always = prev |
-| `onNavigate` | `(current, elements, direction) => HTMLElement \| null` | override target; return `null` for default cycle |
-| `focusableOptions` | `FocusableOptions` | tweaks for tabbable-element detection |
-| `className` / `style` | — | applied to the container div |
-
----
-
-## 10. Repeat: `<Repeat>`
+## 6. Repeat: `<Repeat>`
 
 **Replace:** `Array.from({ length: n }).map((_, i) => ...)` for skeleton/placeholder rows.
 
@@ -279,11 +228,142 @@ Renders a wrapping `<div>`; the ref is internal.
 | Prop | Type | Notes |
 |---|---|---|
 | `times` | `number` | required; `<= 0` renders nothing |
-| `children` | `(index: number) => ReactNode` | required; **set `key`** on returned element |
+| `children` | `(index: number) => ReactNode` | required; **set `key`** on the returned element |
+
+Renders a `Fragment` — no wrapper element is added.
 
 ---
 
-## 11. Local scope: `<Scope>`
+## 7. Date rendering: `<DateRender>`
+
+**Replace:** manual `new Date(iso)` parsing + `toLocaleString()` + null-guards in JSX.
+
+```tsx
+<DateRender source="2026-07-06T08:00:00Z" format={(d) => d.toLocaleDateString()}>
+  {(formatted) => <time>{formatted}</time>}
+</DateRender>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `source` | `Date \| string \| number` | required |
+| `format` | `(date: Date) => T` | optional; default is `date.toLocaleString()` |
+| `children` | `(formatted: T) => ReactNode` | required render-prop |
+
+Generic over the formatted type: `<DateRender<string> …>`.
+
+**Null behavior, exactly:** renders `null` when the source is not a `Date`/`string`/`number`, when a string/number parses to `NaN`, **or when the formatted value is falsy** (`!formattedDate`). So a `format` that returns `""`, `0`, or `false` renders nothing — return a placeholder string instead. A `Date` instance is passed through without a `NaN` check, so an invalid `Date` reaches `format`/`toLocaleString`.
+
+For token-based formatting without a `format` render prop, use `formatDate` ([§22](#22-date-formatting--counter-formatdate--counter)).
+
+---
+
+## 8. Error boundary: `<Boundary>`
+
+**Replace:** writing a class-based `ErrorBoundary` from scratch.
+
+```tsx
+<Boundary
+  fallback={(error, reset) => (
+    <div>
+      <p>Something broke: {error.message}</p>
+      <button onClick={reset}>Retry</button>
+    </div>
+  )}
+  onError={(e, info) => reportError(e, info)}
+>
+  <RiskyChart />
+</Boundary>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `fallback` | `(error: Error, reset: () => void) => ReactNode` | required render-prop |
+| `onError` | `(error: Error, info: React.ErrorInfo) => void` | optional; logging/reporting |
+| `children` | `ReactNode` | subtree to protect |
+
+`reset()` clears the stored error and re-renders children. Only catches render/lifecycle errors — not event handlers or async throws.
+
+---
+
+## 9. Intersection observer: `<Observer>`
+
+**Replace:** `useEffect` + `new IntersectionObserver(...)` + manual `observe`/`disconnect`.
+
+```tsx
+<Observer onIntersect={loadMore} threshold={0.1} triggerOnce>
+  <div>Loading more…</div>
+</Observer>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `onIntersect` | `(entry: IntersectionObserverEntry, observer: IntersectionObserver) => void` | required |
+| `threshold` | `number \| number[]` | default `0.1` |
+| `root` | `Element \| Document \| null` | default viewport (`null`) |
+| `rootMargin` | `string` | default `"0px"` |
+| `triggerOnce` | `boolean` | default `false`; unobserves after the first hit |
+| `disabled` | `boolean` | default `false` |
+| `className` / `style` | — | applied to the wrapper `<div>` |
+
+Renders a wrapping `<div>` (the ref is internal) and always renders it — `disabled` only means "not observed".
+
+**Memoize `onIntersect`.** It is in the effect dependency array, so a new function identity on every render tears down and recreates the `IntersectionObserver`. Wrap it in `useCallback` or hoist it. If the browser lacks `IntersectionObserver` the component warns once and skips observing. Flipping `triggerOnce` back to `false` resets the once-flag, so it can fire again.
+
+---
+
+## 10. Portal: `<Portal>`
+
+**Replace:** manual `createPortal(..., document.body)` + SSR null-guards.
+
+```tsx
+<Portal><Modal /></Portal>
+
+<Portal to={document.getElementById("overlay-root")}><Tooltip /></Portal>
+
+<Portal disabled={isInline}><Callout /></Portal>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `to` | `Element \| null` | default `document.body`; SSR-safe (defers mount until after the mount effect) |
+| `children` | `ReactNode` | content to portal |
+| `disabled` | `boolean` | default `false`; renders inline when true |
+
+---
+
+## 11. Focus trap: `<FocusTrap>`
+
+**Replace:** custom Tab-key handlers + focus-cycle logic for modals/menus.
+
+```tsx
+<FocusTrap autoFocus restoreFocus>
+  <input />
+  <button>Save</button>
+</FocusTrap>
+
+<FocusTrap keyMap={{ ArrowDown: "next", ArrowUp: "prev" }}>
+  <button>A-1</button>
+  <button>B-1</button>
+</FocusTrap>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `children` | `ReactNode` | subtree to trap |
+| `disabled` | `boolean` | default `false` |
+| `autoFocus` | `boolean` | focus first tabbable on mount |
+| `restoreFocus` | `boolean` | restore focus on unmount |
+| `keyMap` | `Partial<Record<string, FocusDirection>>` | default `{ Tab: "next" }`; `FocusDirection = "next" \| "prev" \| "first" \| "last"` |
+| `onNavigate` | `(current: HTMLElement, elements: HTMLElement[], direction: FocusDirection) => HTMLElement \| null` | override target; return `null` for the default cycle |
+| `focusableOptions` | `FocusableOptions` | passed to tabbable detection ([§25](#25-focusability-queries)) |
+| `className` / `style` | — | applied to the container `<div>` |
+
+Shift+Tab always means `prev`, even if `keyMap` remaps `Tab`. Mapped keys are handled on the container's `keydown` and call `preventDefault()` + `stopPropagation()` **before** checking for tabbables, so a mapped key is consumed even when nothing is focusable. It only works while focus is already inside the container. `autoFocus` and `restoreFocus` are no-ops when `disabled`.
+
+---
+
+## 12. Local scope: `<Scope>`
 
 **Replace:** temp `const` computations inline in JSX that hurt readability, or IIFEs for derived render values.
 
@@ -300,13 +380,13 @@ Renders a wrapping `<div>`; the ref is internal.
 | Prop | Type | Notes |
 |---|---|---|
 | `let` | `Record<string, any> \| ((props) => Record<string, any>)` | required; object or function |
-| `props` | `any` | optional; passed into `let` when it's a function |
+| `props` | `any` | optional; passed into `let` when it is a function |
 | `children` | `(scope) => ReactNode` | render-prop receiving the scope |
-| `fallback` | `ReactNode` | shown when `children` missing or scope empty |
+| `fallback` | `ReactNode` | rendered when `children` is missing **or** the scope has no keys |
 
 ---
 
-## 12. Toggle: `<Toggle>`
+## 13. Toggle: `<Toggle>`
 
 **Replace:** `useState` + `setX(prev => options[(options.indexOf(prev)+1) % options.length])` for cycling values (theme, tabs, modes).
 
@@ -323,12 +403,14 @@ Renders a wrapping `<div>`; the ref is internal.
 |---|---|---|
 | `options` | `T[]` | required; values to cycle |
 | `index` | `number` | default `0`; starting index |
-| `next` | `(curIndex, options) => number` | optional; override cycle order |
+| `next` | `(curIndex: number, options: T[]) => number` | optional; override cycle order |
 | `render` | `(value: T, toggle: () => void) => ReactNode` | required render-prop |
+
+**Caveats:** an out-of-bounds `index` **throws** from inside an effect (not during render, so it surfaces asynchronously). With an empty `options` array `toggle` is a no-op and `render` is called with `undefined`. Generic defaults to `boolean`; `render` is called directly on every render (no wrapper element).
 
 ---
 
-## 13. Styles: `<Styles>`
+## 14. Styles: `<Styles>`
 
 **Replace:** `clsx`/`classnames` calls inline + manual `cloneElement` for forwarding `className` to a single child.
 
@@ -348,13 +430,17 @@ Renders a wrapping `<div>`; the ref is internal.
 
 | Prop | Type | Notes |
 |---|---|---|
-| `className` | `string \| StylesDescriptor` | string or categorized object (`base`/`hover`/`active`/`focus`/`disabled`/`color`/`size`/…); de-duped |
-| `asWrapper` | `boolean \| HTMLElementType` | default `false`; `true` = wrap in `<div>`; or pass a tag name like `"span"` |
-| `children` | `ReactNode` | when `asWrapper` is falsy, **exactly one** child element is expected (className is merged onto it) |
+| `className` | `string \| StylesDescriptor` | string, or an object whose **values** are merged |
+| `asWrapper` | `boolean \| HTMLElementType` | default `false`; `true` → wrap in `<div>`; or pass a tag name |
+| `children` | `ReactNode` | when `asWrapper` is falsy, exactly one child element is expected |
+
+**The descriptor keys are only labels.** The implementation is `cx(...Object.values(className))` — values are concatenated flatly, de-duped, in key order. Nothing is prefixed and no key is interpreted, so a variant must carry its own prefix (`hover: "hover:bg-blue"`, not `hover: "bg-blue"`). Keys beyond the documented ones (`base`/`hover`/`active`/`focus`/`disabled`/`color`/`size`/`layer`/`wrapper`/`dark`/`light`/`sundry`, plus any custom string key) behave identically; they are for human grouping only.
+
+**Error/edge behavior:** falsy `children` → `null`; falsy `className` → children returned unmodified; more than one child (without `asWrapper`) → `console.error` and children rendered **without** the merged className; a non-element child → `console.error` and children returned unmerged. A nested `<Styles>` child whose `className` is a descriptor is normalized to a string before merging.
 
 ---
 
-## 14. SizeBox: `<SizeBox>`
+## 15. SizeBox: `<SizeBox>`
 
 **Replace:** `<div style={{ width, height, flexShrink: 0 }}>` for fixed-size spacers.
 
@@ -366,13 +452,121 @@ Renders a wrapping `<div>`; the ref is internal.
 | Prop | Type | Notes |
 |---|---|---|
 | `size` | `number \| string` | sets both width and height |
-| `w` / `width` | `number \| string` | width; `size` takes precedence |
-| `h` / `height` | `number \| string` | height; `size` takes precedence |
+| `w` / `width` | `number \| string` | width |
+| `h` / `height` | `number \| string` | height |
+| `children` | `ReactNode` | rendered inside the box |
 | `className` | `string` | optional |
+
+Resolution uses `size || w || width` and `size || h || height` — a falsy value (`0`, `""`) falls through to the next candidate, so `size={0}` is ignored. Always sets `flexShrink: 0`. With nothing supplied, no width/height style is set.
 
 ---
 
-## 15. Controlled/uncontrolled hook: `useControlled`
+## 16. Frame coalescing: `<FrameRender>`
+
+**Replace:** manual `requestAnimationFrame` throttling of a high-frequency subtree, `useDeferredValue` gymnastics, or "last value wins" ref juggling for live/streaming views.
+
+The parent may re-render at any rate; `FrameRender` lets the expensive child commit **at most once per frame window** (`1000 / fps` ms), last value winning.
+
+```tsx
+// State lives outside (cheap, any rate); the expensive child renders at most 30×/s
+function Dashboard() {
+  const ticks = useHighFrequencyTicks()
+  return (
+    <FrameRender fps={30}>
+      <LiveChart ticks={ticks} />
+    </FrameRender>
+  )
+}
+
+// Function form: when you need to derive from the delivered props bag
+<FrameRender fps={30} props={{ data, theme }}>
+  {({ data, theme }) => <Chart data={data} theme={theme} />}
+</FrameRender>
+```
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `children` | `ReactElement<P> \| ((props: P) => ReactNode)` | — | required; **single element or function only** |
+| `props` | `P` | `{}` | props bag for the function form |
+| `fps` | `number` | `60` | target commit rate; `<= 0` bypasses framing entirely |
+| `strategy` | `"auto" \| "raf" \| "timer"` | `"auto"` | `auto` = rAF visible / timer hidden; `raf`; `timer` |
+| `leading` | `boolean` | `true` | first update of a window commits on the next frame (never synchronously) |
+| `trailing` | `boolean` | `true` | `false` = sampling semantics; with `leading` also false, commits become nearly impossible |
+| `paused` | `boolean` | `false` | stop committing, keep the pending value; resumes with the latest |
+| `disabled` | `boolean` | `false` | full pass-through, no scheduling/comparison/stats |
+| `pauseWhenHidden` | `boolean` | `true` | no commits while the tab is hidden; defers side effects until visible |
+| `scheduler` | `(cb: (time: number) => void) => () => void` | rAF | inject a transport; also for deterministic frame advancement in tests |
+| `select` | `(props: P) => unknown` | — | narrows **comparison only** — the child still receives the full props |
+| `compare` | `"shallow" \| "reference" \| "never" \| ((prev, next) => boolean)` | `"shallow"` | true = equal = skip commit |
+| `shouldCommit` | `(prev, next, ctx) => boolean` | — | veto policy; `false` drops the pending value (reported as `"vetoed"`) |
+| `onFrame` | `(ctx) => void` | — | every pump tick, including non-committing ones — **not** a general frame clock |
+| `onCommit` | `(props: P, ctx) => void` | — | after a commit, inside an effect |
+| `onDrop` | `(props: P, reason, ctx) => void` | — | only meaningful drops: `"vetoed" \| "cancelled" \| "unmounted"` |
+| `warn` | `boolean` | `true` | dev-only notice toggle, read at mount |
+
+`ctx` is a `FrameRenderContext`: `{ time, frame, commits, coalesced, fps }`.
+
+**Imperative handle** via `ref` (`FrameRenderHandle`): `flush(): boolean` (commit pending now, bypassing the time gate), `cancel(): boolean` (drop pending + cancel the booking), `pause()`, `resume()`, `getStats(): FrameRenderStats`. Stats: `{ frames, captures, commits, skips, vetoes, coalesced, dropped, commitsPerSecond }` — `commits` is the upper bound on child renders.
+
+**When this is safe:** children that are **stateless with respect to the coalesced data** — charts, canvases, tables, streaming ticks. In development the component warns once (unless `warn={false}` or `NODE_ENV === "production"`) because:
+
+- Inside a window the child renders the **previous** props of the element form. Never wrap controlled inputs, validation/error messages, loading states, or anything that must react immediately — use the function form if you need unambiguous props.
+- Children with their own state, context subscriptions, or high-frequency subscriptions bypass coalescing entirely.
+
+Also note: unsupported `children` shapes (Fragment, array, string) warn once and pass through unframed; `pauseWhenHidden` means a fully covered tab with the `raf`/`auto` strategy commits nothing (use `"timer"` to keep cadence); unmount drops any pending value.
+
+---
+
+## 17. Mobile stack navigation: `<AppStackRouter>`
+
+**Replace:** hand-rolled `useState`-driven screen stacks, history/back-button plumbing, and edge-swipe-back gesture code in mobile H5 SPAs.
+
+```tsx
+function Home() {
+  const { push } = useAppStack()
+  return <button onClick={() => push(Profile, { id: 1 })}>Open Profile</button>
+}
+
+function Profile({ id }: { id: number }) {
+  const { pop, canPop } = useAppStack()
+  return <button onClick={pop} disabled={!canPop()}>Back</button>
+}
+
+<AppStackRouter root={<Home />} />
+```
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `root` | `ReactElement` | — | required; always rendered at the bottom, and where a refresh lands |
+| `maxStackSize` | `number` | unlimited | exceeding it drops the bottom-most non-root screen; changing it recreates the store |
+| `swipeBack` | `boolean` | `true` | enable the left-edge swipe-back gesture |
+| `swipeBackEdgeWidth` | `number` | `40` | left-edge trigger width, px |
+| `swipeBackCancelOnReverseRelease` | `boolean` | `true` | releasing while moving left forces snap-back even past threshold |
+| `swipeBackCancelVelocity` | `number` | `0.1` | min leftward velocity (px/ms) to count as cancel intent |
+| `safeArea` | `boolean` | `true` | apply `env(safe-area-inset-*)` padding |
+| `transitionDuration` | `number` | `300` | enter/exit transition ms; `0` disables |
+| `fullscreen` | `boolean` | `true` | `100dvh` when true, `100%` when false |
+| `className` / `style` | — | — | container; `style` is spread last, so it can override the computed styles and CSS vars |
+| `children` | `ReactNode` | — | global overlay above the stack (toast, etc.), unaffected by gestures/transitions |
+
+**Navigation API** — `useAppStack(): AppStackApi`:
+
+| Member | Signature | Notes |
+|---|---|---|
+| `push` | `<P>(Component: ComponentType<P>, params?: P) => void` | renders `<Component {...params} />` |
+| `pop` | `() => void` | no-op on an empty stack; also calls `history.back()` to keep browser history consistent |
+| `replace` | `<P>(Component: ComponentType<P>, params?: P) => void` | replaces the top without changing depth; degrades to `push` on an empty stack |
+| `reset` | `() => void` | clears back to root, no transition |
+| `canPop` | `() => boolean` | depth > 0 |
+| `size` | `number` | depth, excluding root |
+
+Also exported: `useStackSize(): number` and `useCanPop(): boolean`, which re-render only when the depth (or the boolean) actually changes. **All three hooks throw** when used outside an `<AppStackRouter>`.
+
+**Behavior to know:** screens are absolutely-positioned layers kept alive (not unmounted), so route component state and scroll survive; only the top layer is interactive. It tracks container width with a `ResizeObserver` (not `window.innerWidth`) and intercepts the browser back button with a `history.pushState` sentinel — with **multiple router instances only the last one to push a sentinel** owns the back button. Remember `<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">` or `safeArea` does nothing. The swipe distance and velocity thresholds are fixed (80px / 0.5 px/ms); only edge width and the cancel options are configurable.
+
+---
+
+## 18. Controlled/uncontrolled hook: `useControlled`
 
 **Replace:** the `isControlled ? props.value : internal` + `onChange` wiring pattern when building inputs.
 
@@ -386,39 +580,340 @@ const [value, setValue] = useControlled({
 })
 ```
 
-| Option | Type | Notes |
-|---|---|---|
-| `defaultValue` | `T` | required; used in uncontrolled mode |
-| `props` | `Record<string, any>` | required; the component's props (inspected for the controlled key) |
-| `valuePropName` | `string` | default `"value"`; key that signals controlled |
-| `trigger` | `string` | default `"onChange"`; key of the change callback in `props` |
-| `onBeforeChange` | `(next, current) => boolean \| void` | optional; return `false` to reject |
+| Option | Type | Default | Notes |
+|---|---|---|---|
+| `defaultValue` | `T` | — | required; used in uncontrolled mode |
+| `props` | `Record<string, any>` | — | required; inspected for the controlled key |
+| `valuePropName` | `string` | `"value"` | key that signals controlled |
+| `trigger` | `string` | `"onChange"` | key of the change callback in `props` |
+| `onBeforeChange` | `(newValue: T, currentValue: T) => boolean \| void` | — | return `false` to reject the change |
 
-Returns `[value, setValue]`. If the controlled prop is present, it wins; otherwise internal state is used and `trigger` is invoked on change.
+Returns `[value, setValue]` where `setValue` is a `Dispatch<SetStateAction<T>>` — it **accepts functional updaters**, resolved against the current value.
+
+Two behaviors worth knowing: the `trigger` callback is invoked in **both** controlled and uncontrolled modes (whenever `props[trigger]` exists), and controlled detection uses `Object.prototype.hasOwnProperty`, so `value={undefined}` counts as controlled. `onBeforeChange` returning `false` aborts before both the internal update and the trigger.
 
 ---
 
-## 16. Class composition: `cx`
+## 19. Responsive breakpoints: `useScreen`
 
-**Replace:** `clsx` for className merging (de-dupes via `Set`).
+**Replace:** `window.matchMedia` / `resize` listeners with manual width comparisons for responsive branching in JS.
+
+```tsx
+const bp = useScreen()                          // 'base' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl'
+const custom = useScreen({ sm: 600, md: 900, lg: 1200 })
+```
+
+`useScreen(breakpointDesc: BreakpointDesc = DefBreakpointDesc): BreakpointName` returns a **single breakpoint name string**, not an object. Default thresholds: `xs 475, sm 640, md 768, lg 1024, xl 1280, 2xl 1536, 3xl 1920`; `base` has no threshold and is the fallback.
+
+Pure resolver also exported: `getCurrentBreakpoint(breakpointDesc, width): BreakpointName`.
+
+Notes: it listens with `matchMedia` on the adjacent breakpoints only, and the effect dependency is `JSON.stringify(breakpointDesc)` — so an inline literal object is fine, but non-JSON values are dropped and key order matters. It is SSR-safe, though the client's initial state reads `window.innerWidth` while the server returns `'base'`, which can surface as a hydration mismatch. A `NaN` threshold for an adjacent breakpoint throws from inside the effect.
+
+---
+
+## 20. Class composition: `cx`
+
+**Replace:** `clsx` for className merging (de-dupes via `Set`, preserving first-seen order).
 
 ```tsx
 cx("a", "b", ["c", "d"], { e: true, f: false }, null, false)
 // → "a b c d e"
 ```
 
-Accepts `string | string[] | Record<string, boolean> | null | false | undefined`.
+Accepts `CxInput = string | string[] | Record<string, boolean> | undefined | null | false`. Falsy args are skipped; array entries are added verbatim; object keys are added when their value is truthy.
+
+---
+
+## 21. External state: `createExternalState` / `createStorageState`
+
+**Replace:** module-level `let` + a home-grown pub/sub, or `Context` for state that should live outside the React tree (cross-component sync, values read by plain functions).
+
+```tsx
+const themeState = createExternalState("light", {
+  onChange: (next, prev) => console.log(`Theme: ${prev} → ${next}`),
+})
+
+themeState.get()                       // read outside React
+themeState.set((prev) => (prev === "light" ? "dark" : "light"))
+
+function ThemeButton() {
+  const [theme, setTheme] = themeState.useState()   // like useState
+  return <button onClick={() => setTheme("dark")}>{theme}</button>
+}
+
+const persisted = createStorageState<string>("key", "initial")   // localStorage by default
+```
+
+Returned API: `get()`, `set(value | updater)`, `useState(): [T, setter]`, `useGetter(): T`. Options are `{ onSet?, onChange? }` — `onSet` fires on **every** `set` (even unchanged), `onChange` only when `Object.is` differs.
+
+Caveats: each call creates an **independent** store — share the returned instance (module-level const) to sync components. There are no selector subscriptions and no batching: every subscriber re-renders on any `set`. Callback errors are caught and logged (`console.error`), never propagated. `useState` provides a server snapshot, so SSR renders the current value but does not subscribe.
+
+`createStorageState(key, initialState, options)` persists `JSON.stringify` on every `set` and reads once at creation. `storageType` is `"local" | "session"` (typed as required, defaults to `"local"` at runtime). It is client-only (guarded by `typeof window`), warns and falls back to `initialState` on a parse failure, writes via `onSet` (so it also writes when the value is unchanged), and does **not** listen for cross-tab `storage` events.
+
+> `__listeners` on the returned object is a test-only internal (per `AGENTS.md`). Don't use it in application code.
+
+---
+
+## 22. Date formatting & counter: `formatDate` / `Counter`
+
+**Replace:** hand-rolled `getFullYear()`/`padStart` date-token formatting.
+
+```ts
+formatDate("YYYY-MM-DD", date)               // '2023-04-15'
+formatDate("YY-MM-DD hh:mm:ss A", date)      // '23-04-15 02:30:45 PM'
+formatDate("dddd", date)                     // 'Saturday'
+```
+
+`formatDate(schema: string, date = new Date()): string`. Tokens: `YY` `YYYY`, `M` `MM` `MMM` `MMMM`, `D` `DD`, `d` `dd` `ddd` `dddd` (weekday name), `H` `HH` (0–23), `h` `hh`, `m` `mm`, `s` `ss`, `SSS`, `Z` `ZZ`, `A` `a`. Uses **local-time** getters; unrecognized characters pass through unchanged (there is no escaping, so a token inside literal text is still replaced).
+
+Two gotchas: `Z`/`ZZ` are **hard-coded to `+08:00` / `+0800`** and are *not* the date's actual offset — never use them for real timezone output. And `h`/`hh` are `hour % 12`, so noon and midnight format as `0`/`00`, not `12`.
+
+`Counter` is a tiny monotonic counter: `count` (public field, starts at 0) and `next(): number` which returns `this.count++` — i.e. it returns the value *before* incrementing.
+
+---
+
+## 23. Promise helpers: `safePromiseTry` / `safePromiseWithResolvers`
+
+**Replace:** `Promise.try` / `Promise.withResolvers` with manual feature detection.
+
+```ts
+await safePromiseTry(() => JSON.parse(maybeJson))   // sync throw becomes a rejection
+const { promise, resolve, reject } = safePromiseWithResolvers<number>()
+```
+
+`safePromiseTry(callbackFn, ...args)` resolves with the callback's value, converts a synchronous throw into a rejection, and mirrors a returned promise. `safePromiseWithResolvers<T>()` returns `{ promise, resolve, reject }`. Both prefer the native `Promise.try` / `Promise.withResolvers` and fall back to a local polyfill, so they are safe on older runtimes.
+
+---
+
+## 24. `childrenLoop`
+
+**Replace:** `React.Children.forEach` when you need to **stop early**.
+
+```ts
+childrenLoop(children, (child, index) => {
+  if (isMatch(child)) return false   // break
+})
+```
+
+`childrenLoop(children: ReactNode | undefined, callback: (child, index) => boolean | void): void`. Returning `false` stops iteration. Unlike `React.Children.forEach`, `null`, booleans, strings and numbers **are** passed to the callback, and only top-level arrays are iterated (nested arrays arrive as opaque values). It is an iteration helper, not a renderer — it does not add keys or flatten.
+
+---
+
+## 25. Focusability queries
+
+**Replace:** hand-written `tabindex`/visibility checks and ad-hoc tabbable-element scans (e.g. when building your own dialog or roving-tabindex list).
+
+| Export | Signature | Notes |
+|---|---|---|
+| `isFocusable` | `(node: Element, options?: FocusableOptions) => boolean` | can receive programmatic focus; **includes** `tabindex="-1"` |
+| `isTabbable` | `(node: Element, options?: FocusableOptions) => boolean` | reachable by Tab; excludes `tabindex < 0` and non-checked radios in a same-name group |
+| `getFocusableElements` | `(container: Element, options?) => HTMLElement[]` | document order, shadow-DOM aware |
+| `getTabbableElements` | `(container: Element, options?) => HTMLElement[]` | **sorted by tab order** (positive `tabindex` ascending, then `0` in document order) |
+| `getTabIndex` | `(node: Element) => number` | effective value including browser defaults |
+
+`FocusableOptions = { includeContainer?: boolean (false), getShadowRoot?: boolean | ((el) => ShadowRoot | boolean | undefined) (true), displayCheck?: "full" | "full-native" | "legacy-full" | "non-zero-area" | "none" ("full") }`.
+
+**SSR asymmetry:** `isFocusable`/`isTabbable` return `false` when there is no DOM, but `getFocusableElements`/`getTabbableElements` throw a `ReferenceError` if called during SSR — only call the collection helpers from effects or event handlers. Closed shadow roots are not traversable.
+
+---
+
+## 26. Breakpoints & responsive types
+
+```ts
+breakpoints            // ['base','xs','sm','md','lg','xl','2xl','3xl'] (ascending)
+DefBreakpointDesc      // { xs: 475, sm: 640, md: 768, lg: 1024, xl: 1280, '2xl': 1536, '3xl': 1920 }
+type Responsive<T> = T | Partial<Record<BreakpointName, T>>
+```
+
+**Replace:** hard-coded pixel thresholds scattered through a component. Use `Responsive<T>` for per-breakpoint value maps and `useScreen()` ([§19](#19-responsive-breakpoints-usescreen)) to pick the active key; `useScreen` does not consume `Responsive<T>` itself.
+
+---
+
+## 27. Long-task splitting: `yieldToMain` / `forEachChunked` / `forEachInFrames`
+
+**Replace:** a long synchronous loop over a large array that freezes input and paint.
+
+| Export | Signature | Notes |
+|---|---|---|
+| `yieldToMain` | `(signal?: AbortSignal) => Promise<void>` | resolve in a fresh macrotask (`MessageChannel`, then `scheduler.yield`, then `setTimeout`) |
+| `forEachChunked` | `<T>(items: Iterable<T>, fn: (item: T, index: number) => void \| Promise<void>, options?: { chunkSize?: number; signal?: AbortSignal }) => Promise<void>` | `chunkSize` default `20`, must be a positive integer or it rejects with `RangeError` |
+| `forEachInFrames` | same shape with `options?: { budgetMs?: number; clockSampleEvery?: number; signal?: AbortSignal }` | `budgetMs` default `5`; work stops at the frame budget and resumes on the next `requestAnimationFrame` |
+
+```ts
+await forEachChunked(chats, (chat) => appendChatNode(chat))            // keep input responsive
+await forEachInFrames(particles, (p) => p.applyForces(), { budgetMs: 5 }) // stay in the render rhythm
+```
+
+Async `fn` is awaited (at most one async item per frame for `forEachInFrames`). Aborting rejects the returned promise; work already done is not rolled back. `forEachInFrames` requires `requestAnimationFrame` (browser-only, not SSR-safe). `yieldToMain` only returns control — it does not cancel running work.
+
+---
+
+## 28. Debounce, throttle & rAF scheduling
+
+**Replace:** bespoke timer bookkeeping for high-frequency events, and manual `requestAnimationFrame` coalescing.
+
+| Export | Signature | Notes |
+|---|---|---|
+| `debounce` | `<F>(fn: F, wait = 200) => DebouncedFunction<F>` | `{ cancel(), flush() }`; runs after `wait` ms of quiet |
+| `throttle` | `<F>(fn: F, wait = 200) => ThrottledFunction<F>` | `{ cancel() }`; leading edge fires immediately, plus a trailing call |
+| `rafSchedule` | `<F>(fn: F) => RafScheduledFunction<F>` | `{ cancel() }`; at most one call per animation frame, latest args win — **no `flush()`** (rAF cannot be forced synchronously) |
+| `appendBatch` | `(parent: Element, children: (Node \| string)[]) => Element` | appends many nodes/strings in one `DocumentFragment` insert |
+| `runLayoutBatch` | `<T, R>(read: () => T, write: (measured: T) => R) => R` | runs all reads, then the write, to avoid layout thrashing |
+
+```ts
+const onScroll = throttle(() => updateReadingPosition(), 100)
+const renderBoard = rafSchedule(() => board.draw())
+appendBatch(tbody, rows.map((row) => renderRow(row)))
+runLayoutBatch(() => els.map((el) => el.offsetWidth), (widths) => els.forEach((el, i) => (el.style.width = `${widths[i]! + 10}px`)))
+```
+
+In every case the original function's return value is discarded. `debounce`/`throttle` clear both the pending timer and the stored arguments on `cancel()` (`debounce` also has `flush()`); `rafSchedule` and `appendBatch` are browser-only.
+
+---
+
+## 29. Queues: `Queue` / `createPriorityQueue`
+
+**Replace:** array `shift()` on deep queues (O(n²)) and ad-hoc "urgent work first" micro-schedulers.
+
+```ts
+class Queue<T> {
+  get length(): number
+  push(item: T): void
+  pushFront(item: T): void
+  pop(): T | undefined
+  remove(predicate: (item: T) => boolean): T | undefined
+  clear(): void
+  toArray(): T[]
+}
+```
+
+Amortized O(1) `push`/`pushFront`/`pop`; `pushFront` is a stack-like line-cut (the most recently front-pushed item pops first). `remove`/`toArray` are O(n) and `remove` returns the frontmost match only.
+
+```ts
+const queue = createPriorityQueue<string>({ onError: (err, job) => report(err) })
+files.forEach((file) => queue.post({ tag: file.id, run: () => createPreview(file) }))
+queue.promote(clickedId)   // jump this job to the front
+```
+
+`createPriorityQueue({ onError? }): PriorityQueue` → `{ post(job, urgent?), promote(tag), clear(), size }`. Drains **one job per macrotask** (`MessageChannel`), so posting is async and returns immediately. `urgent` jobs go to the front (LIFO among urgent). `promote(tag)` is an O(n) scan meant for occasional use. Job errors are contained — reported through `onError`, or `console.error` when omitted — and never block the queue. There is no `dispose()`; `clear()` only drops queued jobs. `MessageChannel` is required, so this is browser/worker-only.
+
+---
+
+## 30. Backpressure: `createDroppingQueue` / `createLatestValue`
+
+**Replace:** an unbounded buffer between a fast producer and a slow consumer, which otherwise grows without limit.
+
+| Export | Signature | Strategy |
+|---|---|---|
+| `createDroppingQueue<T>(capacity = 100)` | `{ push(item): boolean, shift(), items(), drainAll(), size }` | **drop oldest** when full — for flow-past data (live logs, chat) |
+| `createLatestValue<T>()` | `{ set(value), take(), peek(), pending }` | **latest wins** — intermediate values collapse; for tickers, rankings, drafts |
+
+```ts
+const logs = createDroppingQueue<string>(200)
+socket.on("log", (line) => logs.push(line))
+setInterval(() => { for (const line of logs.drainAll()) appendLogLine(line) }, 500)
+
+const board = createLatestValue<Ranking>()
+socket.on("ranking", (r) => board.set(r))
+const next = board.take()   // undefined if nothing new
+```
+
+`push` returns whether the item was kept (only `false` when capacity ≤ 0 — capacity is not validated). `drainAll()` hands over the internal buffer in O(1) and resets the queue. `take()` clears the pending flag, `peek()` does not; a stored `undefined` is indistinguishable from "empty" except via `pending`. Neither needs disposal.
+
+---
+
+## 31. Memoization: `memoize`
+
+**Replace:** a hand-rolled `Map` cache around an expensive pure function.
+
+```ts
+const parseConfig = memoize((raw: string) => expensiveParse(raw))
+const query = memoize(
+  (userId: string, scope: string) => buildQuery(userId, scope),
+  (userId, scope) => `${userId}:${scope}`,
+)
+```
+
+`memoize(fn, keyFn?)` returns a callable with `clear()` and a read-only `stats: { hits, misses }` (a fresh copy per access).
+
+**Default key derivation matters:** with 0 or 1 argument the single argument is the key (Map `SameValueZero`, so object identity is required); with 2 or more arguments the key is `JSON.stringify(args)` — non-serializable arguments (`Map`, `Set`, functions, circular refs) collide or throw. Supply `keyFn` when only part of the arguments matter or when they are not JSON-safe. The cache is **unbounded** and holds strong references — call `clear()` to release. Errors are not cached, so a throw is retried on the next call.
+
+---
+
+## 32. Off-main-thread work: `WorkerPool` / `runInWorkerWithPool`
+
+**Replace:** a hand-written `new Worker(...)` + message-id bookkeeping for CPU-heavy pure functions (parsing, image/math work) that would jank the main thread.
+
+```ts
+// One-liner: a lazily-created, process-wide pool (2 workers)
+const thumbs = await Promise.all(
+  images.map((img) => runInWorkerWithPool(makeThumbnail, img, { transfer: [img.buffer] })),
+)
+
+// Or own the lifetime
+const pool = new WorkerPool({ maxWorkers: 2 })
+const totals = await Promise.all(chunks.map((c) => pool.run(sum, c)))
+pool.dispose()
+```
+
+- `new WorkerPool({ maxWorkers = 2 })` — throws `RangeError` if `maxWorkers` is not a positive integer. Getters: `size`, `maxWorkers`, `pending`, `busy`, `stolen`, `disposed`. `run(fn, arg, options)` returns a promise; `dispose()` terminates workers, revokes the script URL and rejects in-flight/queued jobs (idempotent).
+- Shared pool: `getWorkerPool()`, `disposeWorkerPool()`, `runInWorkerWithPool(fn, arg, options)`. The instance lives on `globalThis` under `workerPoolSymbol` (`Symbol.for('@wwog/react/workerPool')`), so duplicate copies of the library share it. Call `disposeWorkerPool()` on teardown tests, otherwise workers stay alive.
+- `WorkerRunOptions = { transfer?: Transferable[], resultTransfer?: string[] }` — `transfer` moves buffers in zero-copy (the main thread loses them); `resultTransfer` is a list of dot-separated paths in the result to move back out (`"buf"`, `"meta.bytes"`, `"."` for the whole result).
+- Failures reject with `WorkerError` (`{ message, raw }`), covering both spawn/script errors and throws inside the job.
+
+**Hard constraints — these are the reason to not use it casually:**
+- `fn` is serialized with `toString()` and rebuilt with `new Function` inside the worker. It must be **self-contained** (no closures over outer variables) and may only use worker-scope APIs — no DOM.
+- The argument and result must be structured-cloneable (or explicitly transferred).
+- Requires CSP allowances for `worker-src blob:` and `unsafe-eval`.
+- Browser/worker only. Jobs are **not** serialized per function: two calls can run in parallel on different workers, so `await` when order matters.
+- Low-level plumbing (`createWorkerScript`, `readWorkerReply`, `postTransferable`) is exported for hand-written workers speaking the same protocol; `postTransferable` resolves with the worker's *next* message and has no timeout or cancellation.
+
+---
+
+## 33. FLIP animation: `flipAnimate`
+
+**Replace:** animating `top`/`left` (or manually measuring rects before and after a DOM reorder) for list reordering, prepend, and remove-with-collapse.
+
+```ts
+flipAnimate(el, () => { list.prepend(el) })                 // the one and only layout change
+flipAnimate(el, () => list.prepend(el), { duration: 200, easing: "linear" })
+```
+
+`flipAnimate(element: Element, layoutChange: () => void, options?: { duration?: number (300); easing?: string ('ease-in-out'); scale?: boolean (false) }): Animation` measures, runs `layoutChange()` exactly once, measures again, and plays the inverted transform back to `none`. `scale: true` also animates size changes via `transform: scale`.
+
+Caveats: requires the Web Animations API and a live element; `layoutChange` must be **synchronous** and must be the **only** layout change (measuring elsewhere after the call can observe the inverted transform); the returned `Animation` is yours to control (`finished`, `cancel()`); `scale` divides by the final size, so a zero-size result yields a degenerate transform.
+
+---
+
+## 34. Weekday math: `weekday` / `weekdayJulian`
+
+**Replace:** `new Date(y, m, d).getDay()` when you need timezone-independent, allocation-free weekday math, or dates outside the reliable `Date` range.
+
+```ts
+weekday(2023, 4, 15)        // 6 → Saturday   (Gregorian; 0 = Sunday)
+weekdayJulian(1582, 10, 15) // 5 → Thursday   (Julian;    0 = Saturday)
+```
+
+Zeller's congruence (Michael Keith & Tom Craver integer form) for `(y, m, d)` with 4-digit year and 1–12 month. No validation — out-of-range inputs silently return a value mod 7.
+
+**The two functions use different return conventions** (`weekday`: 0 = Sunday; `weekdayJulian`: 0 = Saturday) — do not mix them up. For an ordinary modern date, `new Date().getDay()` is equivalent to `weekday`; reach for these when you need timezone/locale independence, no allocation, or Julian/historical dates.
 
 ---
 
 ## Decision guide — when NOT to use these
 
 - One tiny inline `cond && <X/>` that stays readable → plain `&&` is fine; don't force `<True>`.
-- Performance-critical hot paths with stable identity needs — measure first; these components add a thin wrapper, usually negligible but verify.
+- Performance-critical hot paths with stable identity needs — measure first; most of these components add a thin wrapper, usually negligible but worth verifying.
+- **`<FrameRender>` is not a general optimization** — only wrap stateless, expensive children. Never use it around controlled inputs, validation messages, or loading states, because the element form can render stale props for up to one frame window.
+- **`WorkerPool` is not for I/O or tiny jobs.** Serialization plus worker startup dwarfs the work; use it for CPU-bound, self-contained, structured-cloneable functions.
+- `memoize`, `createExternalState`, and the queues are module-lifetime objects: don't create them inside a render, and clear/dispose them (unbounded caches and live workers are real leaks).
 - If `@wwog/react` is **not** in `package.json` → do not suggest installing it; skip this skill entirely.
 
 ## Style notes
 
 - Match the surrounding file's existing imports and formatting.
-- Keep `key` props on list items.
+- Import from the package root (`@wwog/react`), not from `src/...` deep paths — the internal module layout is not part of the public API.
+- Keep `key` props on list items; with `<ArrayRender>` remember that indices are **not** compacted when there is no `sort`.
 - Don't mix `<If>` and raw ternaries for the same decision in one file — pick one.
+- Memoize any callback passed to `<Observer>` (`onIntersect`) and any inline transform array passed to `<Pipe>`.
+- Prefer the render-prop forms (`<Scope>`, `<Toggle>`, `<DateRender>`, `<Repeat>`) over computing the same values in an outer `useMemo` just to feed JSX.
