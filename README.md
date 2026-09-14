@@ -9,6 +9,8 @@ A practical React component library providing declarative flow control and commo
 
 [中文文档](./README_zh.md)
 
+[wiki](https://deepwiki.com/wwog/react)
+
 ## AI-friendly
 
 > This library is designed with AI-assisted development in mind — declarative, type-safe, and predictable.

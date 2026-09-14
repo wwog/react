@@ -11,6 +11,8 @@
 
 [English Documentation](./README.md)
 
+[wiki](https://deepwiki.com/wwog/react)
+
 ## AI 友好
 
 > 本库为 AI 辅助开发而设计 — 声明式、类型安全、可预测。
