@@ -1,6 +1,6 @@
 ---
 name: use-wwog-react
-description: When writing or editing React/TSX code in a project that depends on @wwog/react, prefer these declarative components and utilities over hand-rolled equivalents. Trigger when: conditional rendering (ternary, &&, multi-branch switch), multi-condition gating, data transformation pipelines, list rendering (.map + filter + sort + empty state), date formatting, error boundaries, intersection observers, portals, focus traps, className composition, controlled/uncontrolled input wiring, responsive breakpoints, mobile stack navigation with back gestures, throttling high-frequency child renders to a frame budget, splitting long tasks and yielding to the main thread, debounce/throttle/rAF scheduling, off-main-thread work in Web Workers, worker pools, memoization, bounded queues and backpressure (drop-oldest / latest-wins), FLIP animations, focusability queries, module-level shared state and localStorage-backed state, fine-grained store subscriptions (one field changing re-rendering only the components that read it) and shallow selector equality, timezone-independent weekday math. Do NOT suggest if @wwog/react is not installed.
+description: When writing or editing React/TSX code in a project that depends on @wwog/react, prefer these declarative components and utilities over hand-rolled equivalents. Trigger when: conditional rendering (ternary, &&, multi-branch switch), multi-condition gating, data transformation pipelines, list rendering (.map + filter + sort + empty state), date formatting, error boundaries, intersection observers, portals, focus traps, className composition, controlled/uncontrolled input wiring, responsive breakpoints, mobile stack navigation with back gestures, throttling high-frequency child renders to a frame budget, splitting long tasks and yielding to the main thread, debounce/throttle/rAF scheduling, off-main-thread work in Web Workers, worker pools, memoization, bounded queues and backpressure (drop-oldest / latest-wins), FLIP animations, focusability queries, module-level shared state and localStorage-backed state, fine-grained store subscriptions (one field changing re-rendering only the components that read it) and shallow selector equality, push-based events (emitter/fire/subscribe, debounce or throttle waterfalls, buffering, multiplexing several sources, async delivery with cancellation, subscribing to one for a React component's lifetime), callbacks that must stay referentially stable yet read the latest props, turning an event's last payload into a renderable value, resource lifetime and unsubscribe leaks (DisposableStore/DisposableMap, `using` declarations), timezone-independent weekday math. Do NOT suggest if @wwog/react is not installed.
 ---
 
 # @wwog/react — declarative components & utilities
@@ -23,6 +23,7 @@ import {
   FrameRender, AppStackRouter, useAppStack, useStackSize, useCanPop,
   // hooks
   useControlled, useScreen, getCurrentBreakpoint,
+  useEvent, useEventValue, useEventCallback,
   // utils
   cx, createExternalState, createStorageState, shallowEqual, formatDate, Counter,
   childrenLoop, safePromiseTry, safePromiseWithResolvers,
@@ -34,6 +35,13 @@ import {
   createDroppingQueue, createLatestValue,
   memoize, WorkerPool, getWorkerPool, runInWorkerWithPool, disposeWorkerPool, WorkerError,
   flipAnimate, weekday, weekdayJulian,
+  // events & lifetime
+  Emitter, Event, MicrotaskDelay, PauseableEmitter, DebounceEmitter, MicrotaskEmitter,
+  AsyncEmitter, EventMultiplexer, DynamicListEventMultiplexer, EventBufferer, Relay,
+  ValueWithChangeEvent, trackSetChanges, EventProfiling, setGlobalLeakWarningThreshold,
+  ListenerLeakError, ListenerRefusalError, createEventDeliveryQueue,
+  DisposableStore, DisposableMap, toDisposable, combinedDisposable, noopDisposable,
+  isDisposable, disposeAll,
 } from "@wwog/react"
 ```
 
@@ -43,9 +51,9 @@ Everything is a **named export** from the root; there are no default exports. Pr
 
 Components: [1 If/True/False](#1-conditional-rendering-if--true--false) · [2 When](#2-multi-condition-gating-when) · [3 Switch](#3-value-match-rendering-switch) · [4 Pipe](#4-data-pipeline-pipe) · [5 ArrayRender](#5-list-rendering-arrayrender) · [6 Repeat](#6-repeat-repeat) · [7 DateRender](#7-date-rendering-daterender) · [8 Boundary](#8-error-boundary-boundary) · [9 Observer](#9-intersection-observer-observer) · [10 Portal](#10-portal-portal) · [11 FocusTrap](#11-focus-trap-focustrap) · [12 Scope](#12-local-scope-scope) · [13 Toggle](#13-toggle-toggle) · [14 Styles](#14-styles-styles) · [15 SizeBox](#15-sizebox-sizebox) · [16 FrameRender](#16-frame-coalescing-framerender) · [17 AppStackRouter](#17-mobile-stack-navigation-appstackrouter)
 
-Hooks: [18 useControlled](#18-controlleduncontrolled-hook-usecontrolled) · [19 useScreen](#19-responsive-breakpoints-usescreen)
+Hooks: [18 useControlled](#18-controlleduncontrolled-hook-usecontrolled) · [19 useScreen](#19-responsive-breakpoints-usescreen) · [36 events in React](#36-events-in-react-useevent--useeventvalue--useeventcallback)
 
-Utils: [20 cx](#20-class-composition-cx) · [21 createExternalState](#21-external-state-createexternalstate--createstoragestate) · [22 formatDate/Counter](#22-date-formatting--counter-formatdate--counter) · [23 promise](#23-promise-helpers-safepromisetry--safepromisewithresolvers) · [24 childrenLoop](#24-childrenloop-childrenloop) · [25 focusable](#25-focusability-queries) · [26 breakpoints](#26-breakpoints--responsive-types) · [27 yield](#27-long-task-splitting-yieldtomain--foreachchunked--foreachinframes) · [28 scheduling](#28-debounce-throttle--raf-scheduling) · [29 queues](#29-queues-queue--createpriorityqueue) · [30 backpressure](#30-backpressure-createdroppingqueue--createlatestvalue) · [31 memoize](#31-memoization-memoize) · [32 workers](#32-off-main-thread-work-workerpool--runinworkerwithpool) · [33 FLIP](#33-flip-animation-flipanimate) · [34 weekday](#34-weekday-math-weekday--weekdayjulian)
+Utils: [20 cx](#20-class-composition-cx) · [21 createExternalState](#21-external-state-createexternalstate--createstoragestate) · [22 formatDate/Counter](#22-date-formatting--counter-formatdate--counter) · [23 promise](#23-promise-helpers-safepromisetry--safepromisewithresolvers) · [24 childrenLoop](#24-childrenloop-childrenloop) · [25 focusable](#25-focusability-queries) · [26 breakpoints](#26-breakpoints--responsive-types) · [27 yield](#27-long-task-splitting-yieldtomain--foreachchunked--foreachinframes) · [28 scheduling](#28-debounce-throttle--raf-scheduling) · [29 queues](#29-queues-queue--createpriorityqueue) · [30 backpressure](#30-backpressure-createdroppingqueue--createlatestvalue) · [31 memoize](#31-memoization-memoize) · [32 workers](#32-off-main-thread-work-workerpool--runinworkerwithpool) · [33 FLIP](#33-flip-animation-flipanimate) · [34 weekday](#34-weekday-math-weekday--weekdayjulian) · [35 events & lifetime](#35-events-and-lifetime-emitter--event)
 
 ---
 
@@ -923,6 +931,133 @@ Zeller's congruence (Michael Keith & Tom Craver integer form) for `(y, m, d)` wi
 
 ---
 
+## 35. Events and lifetime: `Emitter` / `Event`
+
+**Replace:** a hand-rolled `Set<callback>` notifier, `EventTarget` + `addEventListener` bookkeeping, and the `useEffect` cleanup that nobody remembers to write.
+
+```ts
+class Document {
+  private readonly _onDidChange = new Emitter<string>()
+  readonly onDidChange = this._onDidChange.event   // 对外只读:只有内部能 fire
+  edit(text: string) { this._onDidChange.fire(text) }
+}
+
+const doc = new Document()
+const sub = doc.onDidChange(render)   // 订阅 = 调用事件本身
+sub.dispose()                         // 退订 = 释放返回的句柄
+```
+
+**Reach for it when something *happened* and several places may care** — a save finished, a socket message arrived, a shortcut was pressed. Do **not** use it as a store: an `Event` has no current value, so a subscriber that arrives late has missed everything before it.
+
+| Situation | Reach for |
+|---|---|
+| Announce what just happened (replaying it later would be meaningless) | `Emitter` + `Event` |
+| Also need the current value, readable before the first change | `ValueWithChangeEvent` (`const(v)` when it never changes) |
+| Shared app state with per-field subscriptions, maybe persisted | `createExternalState` / `createStorageState` |
+| High-frequency source that should be handled at some rhythm | `Event.debounce` (wait for silence) · `Event.throttle` (steady pace) · `Event.accumulate` (keep every one) |
+| Several sources — or a source that gets replaced at runtime | `Event.any` · `DynamicListEventMultiplexer` · `Relay` |
+| Wait for one event, or for every participant to finish before the next | `Event.toPromise` · `AsyncEmitter.fireAsync` |
+| Own the lifetime of a batch of subscriptions | `DisposableStore` · `DisposableMap` |
+| Only care that a value really changed (not every identical fire) | `Event.latch` |
+
+An `Event<T>` **is a function**: `event(listener, thisArgs?, disposables?)` subscribes and returns a `CompatDisposable`. This is a full port of VS Code's `event.ts`, so the semantics are the same ones that hold up under load: a single listener is stored bare and only becomes an array at the second subscriber, removals leave holes that are compacted lazily, and `fire()` goes through a delivery queue — which is why re-entrant `fire()` delivers in order and why unsubscribing during delivery does not skip the listeners behind it.
+
+| Piece | API |
+|---|---|
+| fire / subscribe | `new Emitter<T>()` → `.fire(v)`, `.event`, `.hasListeners()`, `.dispose()`; options: `onWillAddFirstListener`, `onDidAddFirstListener`, `onDidAddListener`, `onWillRemoveListener`, `onDidRemoveLastListener`, `onListenerError`, `leakWarningThreshold`, `leakWarningName`, `deliveryQueue`, `_profName` |
+| derive | `Event.map` · `filter` · `forEach` · `reduce` · `latch` · `once` · `onceIf` · `any` · `split` · `chain(event, $ => $…)` · `signal` · `None` |
+| timing | `Event.defer` · `debounce(event, merge, delay, leading?, flushOnListenerRemove?)` · `throttle` · `accumulate`; `delay` may be `MicrotaskDelay` to coalesce on the next microtask instead of a timer |
+| bridging | `Event.toPromise` · `forward` · `runAndSubscribe` · `fromDOMEventEmitter` · `fromNodeEventEmitter` · `fromObservable` / `fromObservableLight` |
+| buffering | `Event.buffer(source, debugName, flushAfterTimeout?)` — buffers until the first listener, then replays |
+| emitters | `PauseableEmitter` (counted pause/resume, optional `merge`) · `DebounceEmitter` · `MicrotaskEmitter` · `AsyncEmitter.fireAsync(data, token, promiseJoin?)` with `IWaitUntil.waitUntil(p)` · `EventMultiplexer` · `DynamicListEventMultiplexer` · `EventBufferer` · `Relay` (re-pluggable `input`) |
+| value + change | `ValueWithChangeEvent<T>` (write a *different* value to notify; `ValueWithChangeEvent.const(v)` is free) · `trackSetChanges(getData, onDidChangeData, handleItem)` |
+| lifetime | `DisposableStore` · `DisposableMap<K, V>` · `toDisposable(fn)` · `combinedDisposable(...)` · `noopDisposable` · `isDisposable` · `disposeAll` · `withDisposeSymbol(MyClass.prototype)` (makes your own class answer `Symbol.dispose` with its `dispose()`) |
+
+```ts
+// React: build the subscription inside the effect, release it in the cleanup
+useEffect(() => {
+  const sub = emitter.event(handler)
+  return () => sub.dispose()
+}, [emitter])
+
+// several subscriptions sharing one lifetime — create the store *inside* the effect
+useEffect(() => {
+  const store = new DisposableStore()
+  store.add(emitter.event(onA))
+  store.add(Event.any(emitter.event, other.event)(onAny))
+  return () => store.dispose()
+}, [emitter, other])
+
+// per-key ownership
+const perItem = new DisposableMap<string, CompatDisposable>()
+perItem.set(key, source(key).event(handler))
+perItem.deleteAndDispose(key)   // releases exactly that one
+```
+
+**Lifetime protocol:** disposal is a plain `dispose()` (the shape VS Code/RxJS/monaco use) and every object additionally answers the real `Symbol.dispose` where the runtime has it (Chrome 125+, Safari 18.4+, Firefox 134+, Node 20+), so `using sub = emitter.event(handler)` works. The symbol is deliberately **not** in the public type — naming the global `Disposable`/`Symbol.dispose` in a signature would break `tsc` for consumers whose `lib` stops before `esnext.disposable` (the repo's own example app runs `lib: ["ES2020", "DOM"]`).
+
+**Cautions — these are the ones that bite:**
+
+- **Events are hot.** A subscriber misses everything fired before it subscribed; `Event.buffer` is the one exception, and `ValueWithChangeEvent` / `createExternalState` are the answer when you need a readable current value.
+- **A derived event exposed to third parties must be created with a `DisposableStore`** (`Event.map(src, fn, store)`). Otherwise a forgotten unsubscribe on the derived event leaks a listener on the source. Derivation is lazy — the source is not touched until the first listener arrives, and released when the last one leaves.
+- **Union-typed events need explicit type arguments:** `Event.filter<number, string>(ev, (e): e is number => …)` and `Event.split<number, undefined>(ev, isNumber)`. Without them the type-guard overload cannot be inferred and the non-narrowing one silently wins. `Event.reduce` without `initial` likewise needs `Event.reduce<I, O>(…)`.
+- **`EventBufferer.wrapEvent(ev, reduce, initial)`'s reduce form only works with one listener** — with more, the shared accumulator double-counts and only the first subscriber is notified (upstream behaviour, documented in the JSDoc). Use the non-reduce form or `Event.accumulate` when several subscribers listen.
+- **`Event.toPromise(ev).cancel()` does not reject** — it detaches the listener and the promise never settles. Race it yourself when you need a timeout.
+- **Leak warnings are opt-in:** pass `leakWarningThreshold` (or call `setGlobalLeakWarningThreshold(n)`, which returns a disposable that restores the previous value). Over the threshold it reports a `ListenerLeakError` per call site; far over it (`threshold²`) the emitter refuses new listeners with a `ListenerRefusalError`.
+- **In React, the store must be created inside the effect.** `StrictMode` runs effects twice (mount → unmount → mount); a `DisposableStore` created in `useMemo`/`useRef` and disposed in the cleanup is already released on the second mount, so every later `store.add(subscription)` is dropped while the subscription itself stays live — the failure is silent. `new DisposableStore()` inside the effect, `return () => store.dispose()`.
+- **`EmitterOptions.onListenerError` defaults to `console.error`, not to a rethrow** — a library must not turn a listener's exception into the host's global error. `AsyncEmitter.fireAsync` reports through the same default regardless of the option, matching the original.
+
+**Deviations from the VS Code original** (everything else is ported as-is): disposal comes from this package instead of `lifecycle.ts`/`IDisposable`; `LinkedList`, `createSingleCallFunction` and `diffSets` are private implementations in the module and `StopWatch` became a `performance.now()` measurement; the default listener-error handling is `console.error`; the dev-only switches key off `process.env.NODE_ENV` instead of `env.VSCODE_DEV` (so bundlers strip them); and `fromObservable` accepts a minimal structural observable (`get`, `reportChanges`, `addObserver`, `removeObserver`) rather than the whole operator set.
+
+---
+
+## 36. Events in React: `useEvent` / `useEventValue` / `useEventCallback`
+
+**Replace:** the hand-written `useEffect(() => { const s = src.on(handler); return () => s() }, [])`, the `useCallback` whose dependency list exists only to keep a reference stable, and the `useState` + subscribe pair repeated for every "last error / progress / last message" you want to render.
+
+| You want | Use |
+|---|---|
+| The component follows an external event (socket, keyboard, a DOM listener, an external store) | `useEvent(event, handler)` |
+| The last payload of an event, rendered (progress, last error, last message) | `useEventValue(event, initial)` |
+| A callback that stays referentially stable but reads the latest props/state | `useEventCallback(fn)` |
+| Shared/persisted state rather than "something happened" | `createExternalState` + `useSelector` (not these hooks) |
+| Every payload buffered while nobody listened | `Event.buffer` before `useEvent` |
+
+```tsx
+import { useEvent, useEventValue, useEventCallback, Emitter } from "@wwog/react"
+
+function Chat({ filter }: { filter: string }) {
+  const [messages, setMessages] = useState<string[]>([])
+  // subscribes on mount, unsubscribes on unmount, always calls the latest closure
+  useEvent(socket.onMessage, (message) => {
+    if (matches(message, filter)) setMessages((all) => [...all, message])
+  })
+  return <ul>{messages.map((m) => <li key={m}>{m}</li>)}</ul>
+}
+
+function Upload() {
+  const percent = useEventValue(uploader.onProgress, 0)   // 0 until the first fire
+  return <progress value={percent} max={100} />
+}
+
+// one reference for the whole lifetime, latest `draft` when called
+const save = useEventCallback(() => persist(draft))
+const saveDebounced = useMemo(() => debounce(save, 300), [save])
+```
+
+**What the hooks guarantee, and what they leave to you:**
+
+- **No resubscription on re-render** — the listener is forwarded through a ref and the subscription depends on the event identity alone. Fires are never missed *because of a re-render*; the handler simply sees the newest props.
+- **A subscription belongs to the effect**, so `StrictMode` (mount → unmount → mount) is safe. Never own the store yourself (`useMemo`/`useRef` + `dispose` in a cleanup) — the second mount gets an already-released store and the subscription silently stops working.
+- **The event must be a stable reference.** `emitter.event` is cached and safe inline; `Event.map(ev, fn)` returns a new event per call, so memoize the derived event (`useMemo(() => Event.map(...), [source])`) or bind it to a `DisposableStore` — otherwise every render swaps the source and resubscribes.
+- **No `useSyncExternalStore`, no returned subscription handle.** There is no shared snapshot to tear from (`useEventValue` caches the last payload per component), and a handle would be a fresh object each render. Manage subscriptions outside the render phase with a `DisposableStore` instead.
+- **Conditional subscription:** `useEvent(enabled ? event : Event.None, handler)`. No extra parameter, and `Event.None` is a stable singleton.
+- **`useEventValue` follows React's `Object.is` bailout** — firing twice with the same reference re-renders once. When every fire must count, count in the event (`Event.map(ev, () => n++)`); when only real changes matter, `Event.latch` it first. A function payload and a function `initial` are both handled (neither is mistaken for an updater / lazy initializer).
+- **Fires between render and the effect are lost**, because events are hot. Buffer with `Event.buffer`, or reach for `ValueWithChangeEvent` / `createExternalState` when a current value must be readable at any time.
+- `useEventCallback` mirrors React 19's `useEffectEvent` in intent but may be called anywhere (handlers, effects, promise callbacks) and passed down to children — it just does not have `useEffectEvent`'s "effects only" guardrail.
+
+---
+
 ## Decision guide — when NOT to use these
 
 - One tiny inline `cond && <X/>` that stays readable → plain `&&` is fine; don't force `<True>`.
@@ -930,6 +1065,9 @@ Zeller's congruence (Michael Keith & Tom Craver integer form) for `(y, m, d)` wi
 - **`<FrameRender>` is not a general optimization** — only wrap stateless, expensive children. Never use it around controlled inputs, validation messages, or loading states, because the element form can render stale props for up to one frame window.
 - **`WorkerPool` is not for I/O or tiny jobs.** Serialization plus worker startup dwarfs the work; use it for CPU-bound, self-contained, structured-cloneable functions.
 - `memoize`, `createExternalState`, and the queues are module-lifetime objects: don't create them inside a render, and clear/dispose them (unbounded caches and live workers are real leaks).
+- **Reach for `useEvent` before writing `useEffect` + `on()` + cleanup**, and for `useEventCallback` before writing a `useCallback` whose only purpose is a stable identity. Do not wrap state that must be readable at any time in an event just to move it through these hooks.
+- **An `Emitter` is not a store.** Don't use it to hold state that components read at render time — use `createExternalState`/`ValueWithChangeEvent` for that. Reach for events for things that *happen* (a save finished, a keystroke, a socket message), and always pair a subscription with a lifetime (`useEffect` cleanup or a `DisposableStore`).
+- Don't reach for `Event.multiplexer`/`AsyncEmitter`/leak thresholds by default: plain `new Emitter()` + `Event.map/filter` covers most cases. `AsyncEmitter.fireAsync` is for "every participant must finish before the next one starts" (save-participant style) and is not a general broadcast.
 - If `@wwog/react` is **not** in `package.json` → do not suggest installing it; skip this skill entirely.
 
 ## Style notes

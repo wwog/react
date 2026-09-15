@@ -47,6 +47,7 @@ pnpm add @wwog/react
 - **声明式流程控制**：JSX 风格的条件渲染和流程控制组件
 - **通用工具组件**：简单实用的常见 UI 工具组件
 - **轻量高效** 性能优越，体积小巧
+- **事件与生命周期**：对齐 VS Code 的事件系统（`Emitter` / `Event`），以及管理资源生命周期的 `DisposableStore` / `DisposableMap`
 
 ## 组件和用法
 
@@ -587,6 +588,45 @@ function Example() {
 
 ### hooks
 
+#### `useEvent` / `useEventValue` / `useEventCallback`（v1.6.0+）
+
+事件系统的 React 绑定：订阅跟随组件生死、把事件的最后一次载荷渲染出来、给出既稳定又能读到最新 props 的回调。
+
+```tsx
+import { useEvent, useEventValue, useEventCallback } from "@wwog/react";
+
+function Chat({ filter }: { filter: string }) {
+  const [messages, setMessages] = useState<string[]>([]);
+  // 挂载时订阅、卸载时退订，回调始终读到最新的 filter
+  useEvent(socket.onMessage, (message) => {
+    if (matches(message, filter)) setMessages((all) => [...all, message]);
+  });
+  return <ul>{messages.map((m) => <li key={m}>{m}</li>)}</ul>;
+}
+
+function Upload() {
+  const percent = useEventValue(uploader.onProgress, 0); // 首次触发前是 0
+  return <progress value={percent} max={100} />;
+}
+
+const save = useEventCallback(() => persist(draft)); // 引用稳定，读到最新 draft
+const saveDebounced = useMemo(() => debounce(save, 300), [save]);
+```
+
+| Hook | 签名 | 作用 |
+|---|---|---|
+| `useEvent` | `useEvent(event, handler): void` | 挂载订阅、卸载退订；重渲染不会重订阅，回调始终看到最新 props / state。条件订阅写 `useEvent(enabled ? event : Event.None, handler)`。 |
+| `useEventValue` | `useEventValue(event, initial): T` | 保存最近一次载荷并在每次触发时重渲染；`initial` 只在挂载时使用。 |
+| `useEventCallback` | `useEventCallback(fn): F` | 组件整个生命周期内引用不变，但调用时读到最新闭包——不必再为「保持引用」维护 useCallback 的依赖数组。 |
+
+**两个最容易踩的点：**
+
+- **事件必须是稳定引用。** `emitter.event` 是缓存的，可以直接内联传；`Event.map(ev, fn)` 每次调用都返回新事件，派生事件要 `useMemo` 稳定化（或绑到 `DisposableStore`），否则每轮渲染都会换源。
+- **订阅属于 effect。** `StrictMode` 会把 effect 跑两遍（挂载 → 卸载 → 再挂载）：把 store 建在 `useMemo`/`useRef` 里再在清理函数里 dispose，第二次挂载拿到的就是已释放的 store，订阅会静默失效。这三个 hook 已经替你处理；自己管订阅时，`DisposableStore` 要建在 effect 内部。
+
+渲染到 effect 之间触发的事件会丢（事件是热的）——要缓冲用 `Event.buffer`，「既要当前值又要跟变更」用 `useEventValue` / `ValueWithChangeEvent`。`useEventValue` 遵循 React 的 `Object.is` 短路：同一个引用连续触发两次只重渲染一次，要「值真的变了才处理」请显式套上 `Event.latch`。
+
+
 - 一些常用的 hooks 的封装
 
 #### useControlled (v1.2.0+)
@@ -776,6 +816,56 @@ function Example({ isActive, isDisabled }) {
 - 字符串数组: `["class1", "class2"]`
 - 对象: `{ "class1": true, "class2": false }`
 - 以上类型的任意组合
+
+#### `Emitter` / `Event`（v1.6.0+）
+
+推送式事件系统，完整迁移自 VS Code 的 `src/vs/base/common/event.ts`（MIT）。事件**本身就是一个函数**：调用即订阅，返回的句柄用于退订。
+
+```ts
+import { Emitter, DisposableStore } from "@wwog/react";
+
+class Document {
+  private readonly _onDidChange = new Emitter<string>();
+  readonly onDidChange = this._onDidChange.event; // 对外只读
+
+  edit(text: string) {
+    this._onDidChange.fire(text);
+  }
+}
+
+const store = new DisposableStore();
+const doc = new Document();
+store.add(doc.onDidChange((text) => console.log(text)));
+
+doc.edit("hello"); // 触发
+store.dispose();   // 退订全部
+```
+
+- **派生**：`Event.map`、`filter`、`forEach`、`reduce`、`latch`、`once`、`onceIf`、`any`、`split`、`chain`、`signal`、`defer`、`debounce`、`throttle`、`accumulate`、`buffer`、`toPromise`、`forward`、`runAndSubscribe`、`fromDOMEventEmitter`、`fromNodeEventEmitter`、`fromObservable`。
+- **专用 emitter**：`PauseableEmitter`、`DebounceEmitter`、`MicrotaskEmitter`、`AsyncEmitter`（顺序异步投递，支持 `waitUntil` 与取消令牌）、`EventMultiplexer`、`DynamicListEventMultiplexer`、`EventBufferer`、`Relay`、`ValueWithChangeEvent`。
+- **泄漏检测**：给 `Emitter` 传 `leakWarningThreshold`（或调用 `setGlobalLeakWarningThreshold`）即按调用点统计监听器数量，超出报 `ListenerLeakError`，远超则拒绝新增并报 `ListenerRefusalError`；`_profName` 开启 `EventProfiling`。
+- 事件是**热的**——晚到的订阅者收不到此前触发过的事件。需要「当前值 + 变更通知」请用 `ValueWithChangeEvent` 或 `createExternalState`。
+- 会被第三方拿到的派生事件（`Event.map(src, fn, store)`）应传入 `DisposableStore`，否则别人忘记退订会在源上留下监听器。
+
+#### `DisposableStore` / `DisposableMap`（v1.6.0+）
+
+事件 API 使用的生命周期工具，也可独立用于任何带 `dispose()` 的资源。
+
+```ts
+import { DisposableStore, DisposableMap, type CompatDisposable } from "@wwog/react";
+
+const store = new DisposableStore();
+store.add(subscription);        // dispose() 释放全部；之后添加的会在 add 时立刻释放
+store.clear();                  // 只清空内容，store 仍可用
+
+const perKey = new DisposableMap<string, CompatDisposable>();
+perKey.set("a", someResource);  // 覆盖同一个 key 会释放原值
+perKey.deleteAndDispose("a");
+```
+
+释放协议是 `dispose()`；在运行时支持 `Symbol.dispose` 的环境（Chrome 125+、Safari 18.4+、Firefox 134+、Node 20+）上还会挂上该符号，因此 `using sub = emitter.event(handler)` 同样可用。自己的类可以用 `withDisposeSymbol(MyClass.prototype)` 接入同一套协议：让 `Symbol.dispose` 指向它的 `dispose()`。符号刻意不写进公开类型：引用全局 `Disposable` 会让 `lib` 停在 `esnext.disposable` 之前的使用者工程编译不过。
+
+> `src/utils/event.ts` 派生自微软 VS Code（MIT，Copyright (c) Microsoft Corporation）；准确署名与差异清单见文件头。
 
 ## License
 

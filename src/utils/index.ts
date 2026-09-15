@@ -1,4 +1,6 @@
 export * from './focusable'
+export * from './disposable'
+export * from './event'
 export * from './createExternalState'
 export * from './shallowEqual'
 export * from './cx'

@@ -26,10 +26,10 @@ src/
     Sundry/           # Boundary, FocusTrap, Observer, Portal, Repeat, Scope, SizeBox, Styles, Toggle
     Navigation/       # AppStackRouter（含 stackStore / useSwipeBack / useAppStack）
     Performance/      # FrameRender
-  hooks/              # useControlled, useScreen
+  hooks/              # useControlled, useScreen, useEvent / useEventValue / useEventCallback
   utils/              # createExternalState, cx, reactUtils, sundry, promise, constants, focusable,
                       # yield, batching, priorityQueue, queue, flip, worker, workerPool,
-                      # memoize, backpressure
+                      # memoize, backpressure, disposable, event
 ```
 
 ## 架构说明
@@ -53,6 +53,24 @@ src/
 ### `childrenLoop` vs `React.Children.forEach`
 
 `childrenLoop`（`src/utils/reactUtils.ts`）是对 `React.Children.forEach` 的替代，支持通过返回 `false` 中断循环，用于 `Switch` 的非严格模式 early exit 优化。
+
+### `event.ts` / `disposable.ts`（迁移自 VS Code）
+
+`src/utils/event.ts` 是 VS Code `src/vs/base/common/event.ts` 的完整迁移（MIT，版权署名与差异清单写在文件头）。事件语义逐条对齐，改动前请先读模块头那份差异清单，其中几条最容易踩：
+
+- 可释放对象的协议是 `dispose()`（与 VS Code / RxJS / monaco 同形），运行时在支持的环境由 `withDisposeSymbol` 挂上真正的 `Symbol.dispose`，但**类型上不引用全局 `Disposable` / `Symbol.dispose`**：本库发布 `src/` 与 `.d.ts`，而 example 应用用的是 `lib: ["ES2020", "DOM"]`，签名里出现 `esnext.disposable` 会让这类工程直接编译不过。同理 `disposeAll` 里的 `AggregateError` 是从 `globalThis` 断言取值的（ES2021 起才存在）。
+- 不要把 VS Code 的 `IDisposable` / `lifecycle` 当依赖引进来：`disposable.ts` 已经用 `DisposableStore` / `DisposableMap` / `toDisposable` / `combinedDisposable` / `noopDisposable` 覆盖了事件模块用到的全部能力。
+- `EventBufferer.wrapEvent` 的 reduce 形式在原版就只支持单监听器（多监听器会重复累加，且只有第一个订阅者收到合并结果）。测试固化了这一行为，改之前先看那条 JSDoc。
+- `Emitter` 家族内部用 TS 的 `private` / `protected` 而不是 `#` 私有字段：`AsyncEmitter`、`PauseableEmitter`、`MicrotaskEmitter` 需要访问 `_listeners` 与 `_size`，而 `#` 字段对子类不可见。
+
+### `useEvent` 系列 hook 的两条硬约束
+
+`src/hooks/useEvent.ts` 把事件接到 React 上，实现里有两条不能动的约束：
+
+- **订阅建在 effect 内部，清理函数退订。** 这是 `StrictMode`（挂载 → 卸载 → 再挂载）下唯一正确的形状：把 store 建在 `useMemo`/`useRef` 里再在清理函数里 dispose，第二次挂载拿到的是已释放的 store，订阅会静默失效（示例应用跑在 StrictMode 下，这类错误会直接表现出来）。
+- **稳定的是监听器，不是事件。** 回调经由 ref 转发（`useEventCallback`），订阅只依赖 `event` 一个因子，所以重渲染不重订阅；代价是 `Event.map(ev, fn)` 这类派生事件必须由调用方稳定化（`useMemo`），内联新建等于每轮换源。
+
+`useEventValue` 的初值与写入都走「函数形式」（`useState(() => initial)` / `setValue(() => payload)`）：事件载荷允许是函数，直接写会被 React 当成惰性初始化函数或状态更新器。这条有专门的测试。
 
 ## 测试
 

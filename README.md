@@ -45,6 +45,7 @@ pnpm add @wwog/react
 - **Declarative flow control**: JSX-style conditional rendering and flow control components
 - **Utility components**: Simple and practical common UI utility components
 - **Lightweight and efficient** Excellent performance and compact size
+- **Events & lifetime**: a VS Code-compatible event system (`Emitter` / `Event`) with `DisposableStore` / `DisposableMap` for resource lifetime
 
 ## Components & Usage
 
@@ -585,6 +586,45 @@ You can also use a container wrapper element:
 
 ### hooks
 
+#### `useEvent` / `useEventValue` / `useEventCallback` (v1.6.0+)
+
+React bindings for the event system: subscribe for as long as a component is alive, render the last payload of an event, and hand out callbacks that are stable *and* fresh.
+
+```tsx
+import { useEvent, useEventValue, useEventCallback } from "@wwog/react";
+
+function Chat({ filter }: { filter: string }) {
+  const [messages, setMessages] = useState<string[]>([]);
+  // subscribes on mount, unsubscribes on unmount, always calls the latest closure
+  useEvent(socket.onMessage, (message) => {
+    if (matches(message, filter)) setMessages((all) => [...all, message]);
+  });
+  return <ul>{messages.map((m) => <li key={m}>{m}</li>)}</ul>;
+}
+
+function Upload() {
+  const percent = useEventValue(uploader.onProgress, 0); // 0 until the first fire
+  return <progress value={percent} max={100} />;
+}
+
+const save = useEventCallback(() => persist(draft)); // one reference, latest draft
+const saveDebounced = useMemo(() => debounce(save, 300), [save]);
+```
+
+| Hook | Signature | What it does |
+|---|---|---|
+| `useEvent` | `useEvent(event, handler): void` | Subscribes on mount, unsubscribes on unmount; a re-render never resubscribes and the handler always sees the latest props/state. Conditional subscription: `useEvent(enabled ? event : Event.None, handler)`. |
+| `useEventValue` | `useEventValue(event, initial): T` | Keeps the most recent payload and re-renders on each fire. `initial` is only used on mount. |
+| `useEventCallback` | `useEventCallback(fn): F` | One reference for the component's whole lifetime that still reads the latest closure — the `useCallback` you no longer have to keep a dependency list for. |
+
+**The two things that bite:**
+
+- **The event must be a stable reference.** `emitter.event` is cached and safe to pass inline; `Event.map(ev, fn)` returns a new event per call, so memoize derived events (`useMemo(() => Event.map(ev, fn), [ev])`) or bind them to a `DisposableStore` — otherwise every render swaps the source.
+- **A subscription belongs to an effect.** `StrictMode` runs effects twice (mount → unmount → mount), so a store created in `useMemo`/`useRef` and disposed in the cleanup is already released on the second mount and the subscription silently stops working. The hooks own this for you; when you manage subscriptions by hand, create the `DisposableStore` *inside* the effect.
+
+Fires that happen between render and the effect are lost (events are hot) — `Event.buffer` is the opt-in fix, and `useEventValue` / `ValueWithChangeEvent` are for "I need the current value as well". `useEventValue` follows React's `Object.is` bailout: firing twice with the same reference re-renders once, and `Event.latch` is how you make "only when it really changed" explicit.
+
+
 #### useControlled
 
 - Applied to states that can be controlled or uncontrolled components
@@ -778,5 +818,55 @@ Supports various parameter types:
 - String array: `["class1", "class2"]`
 - Object: `{ "class1": true, "class2": false }`
 - Any combination of the above types
+
+#### `Emitter` / `Event` (v1.6.0+)
+
+A push-based event system, ported in full from VS Code's `src/vs/base/common/event.ts` (MIT). An event **is a function**: calling it subscribes, and the returned handle unsubscribes.
+
+```ts
+import { Emitter, DisposableStore } from "@wwog/react";
+
+class Document {
+  private readonly _onDidChange = new Emitter<string>();
+  readonly onDidChange = this._onDidChange.event; // read-only to the outside
+
+  edit(text: string) {
+    this._onDidChange.fire(text);
+  }
+}
+
+const store = new DisposableStore();
+const doc = new Document();
+store.add(doc.onDidChange((text) => console.log(text)));
+
+doc.edit("hello"); // fires
+store.dispose();   // unsubscribes everything
+```
+
+- **Derive**: `Event.map`, `filter`, `forEach`, `reduce`, `latch`, `once`, `onceIf`, `any`, `split`, `chain`, `signal`, `defer`, `debounce`, `throttle`, `accumulate`, `buffer`, `toPromise`, `forward`, `runAndSubscribe`, `fromDOMEventEmitter`, `fromNodeEventEmitter`, `fromObservable`.
+- **Specialised emitters**: `PauseableEmitter`, `DebounceEmitter`, `MicrotaskEmitter`, `AsyncEmitter` (sequential async delivery with `waitUntil` and a cancellation token), `EventMultiplexer`, `DynamicListEventMultiplexer`, `EventBufferer`, `Relay`, `ValueWithChangeEvent`.
+- **Leak detection**: pass `leakWarningThreshold` to an `Emitter` (or call `setGlobalLeakWarningThreshold`) to have listeners counted per call site, reported as `ListenerLeakError` and refused as `ListenerRefusalError` when far over; `_profName` enables `EventProfiling`.
+- Events are **hot** — a late subscriber misses earlier fires. For "current value plus changes" use `ValueWithChangeEvent` or `createExternalState`.
+- A derived event that third parties can reach (`Event.map(src, fn, store)`) should be given a `DisposableStore`, otherwise a forgotten unsubscribe leaks a listener on the source.
+
+#### `DisposableStore` / `DisposableMap` (v1.6.0+)
+
+Lifetime helpers used by the event API, and useful on their own for any resource exposing `dispose()`.
+
+```ts
+import { DisposableStore, DisposableMap, type CompatDisposable } from "@wwog/react";
+
+const store = new DisposableStore();
+store.add(subscription);        // dispose() releases all; later adds release on add
+store.clear();                  // releases the contents, keeps the store usable
+
+const perKey = new DisposableMap<string, CompatDisposable>();
+perKey.set("a", someResource);  // overwriting a key releases the previous value
+perKey.deleteAndDispose("a");
+```
+
+The disposal protocol is `dispose()`, and where the runtime provides `Symbol.dispose` (Chrome 125+, Safari 18.4+, Firefox 134+, Node 20+) it is attached too, so `using sub = emitter.event(handler)` works as well. Your own classes can opt in with `withDisposeSymbol(MyClass.prototype)`, which points `Symbol.dispose` at their `dispose()`. The symbol is kept out of the public types on purpose: naming the global `Disposable` would break `tsc` for projects whose `lib` stops before `esnext.disposable`.
+
+> `src/utils/event.ts` is derived from Microsoft's VS Code (MIT, Copyright (c) Microsoft Corporation); see the file header for the exact attribution and the list of deviations.
 
 ## License

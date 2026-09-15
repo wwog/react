@@ -1,5 +1,6 @@
 import {groups, type DocRoute} from "../types";
 import {UseControlledDoc} from "./UseControlledDoc";
+import {UseEventDoc} from "./UseEventDoc";
 import {UseScreenDoc} from "./UseScreenDoc";
 
 /** hooks 分组的全部路由（对应 `src/hooks/`）。 */
@@ -13,6 +14,16 @@ export const hooksRoutes: DocRoute[] = [
       en: "Controlled / uncontrolled unification · hasOwnProperty detection · onBeforeChange veto · custom trigger",
     },
     component: UseControlledDoc,
+  },
+  {
+    id: "use-event",
+    group: groups.hooks,
+    title: {zh: "useEvent 事件订阅", en: "useEvent"},
+    blurb: {
+      zh: "订阅跟随组件生死 · useEventValue 事件驱动值 · useEventCallback 稳定回调",
+      en: "Subscriptions that follow the component · useEventValue · useEventCallback",
+    },
+    component: UseEventDoc,
   },
   {
     id: "use-screen",

@@ -1,6 +1,7 @@
 import {groups, type DocRoute} from "../types";
 import {BackpressureDoc} from "./BackpressureDoc";
 import {BatchingDoc} from "./BatchingDoc";
+import {EventDoc} from "./EventDoc";
 import {ExternalStateDoc} from "./ExternalStateDoc";
 import {FlipDoc} from "./FlipDoc";
 import {FocusableDoc} from "./FocusableDoc";
@@ -13,6 +14,16 @@ import {YieldDoc} from "./YieldDoc";
 
 /** utils 分组的全部路由（对应 `src/utils/`）。 */
 export const utilsRoutes: DocRoute[] = [
+  {
+    id: "event",
+    group: groups.utils,
+    title: {zh: "事件与生命周期", en: "Events & lifetime"},
+    blurb: {
+      zh: "Emitter · Event 组合子 · 专用 emitter · 泄漏检测 · DisposableStore",
+      en: "Emitter · Event combinators · specialised emitters · leak detection · DisposableStore",
+    },
+    component: EventDoc,
+  },
   {
     id: "worker-pool",
     group: groups.utils,
