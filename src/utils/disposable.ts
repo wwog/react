@@ -14,6 +14,13 @@
  * it: the library must not require a specific `lib` from everyone who imports it. Consumers who
  * do have the newer lib can write `using sub = event(handler)` and get the cleanup for free.
  *
+ * **No module-level side effects.** The symbol is installed from each *constructor*
+ * (`withDisposeSymbol(X.prototype)` is idempotent, so the first instance pays for it and the rest
+ * just hit the `in` check), never from a top-level statement. A top-level call makes the whole
+ * module undroppable for bundlers — a consumer importing `cx` would still ship the event system —
+ * and it is also what makes `"sideEffects": false` in `package.json` truthful. See the build
+ * section of AGENTS.md before moving one of these calls back out.
+ *
  * @zh 推送式 API（{@link Emitter}、{@link Event}、{@link DisposableStore}）所需的可释放对象
  * 基础设施。
  *
@@ -25,6 +32,12 @@
  * `Disposable` / `Symbol.dispose` 会让 `lib` 停在 `esnext.disposable` 之前的使用者工程直接
  * 编译报错——{@link safePromiseTry} 用类型断言而不是直接调用来取 `Promise.try`，是同一个理由。
  * 而 lib 较新的使用者可以直接写 `using sub = event(handler)`，清理照常生效。
+ *
+ * **模块顶层不做任何调用。** 符号安装放在各自*构造函数*里（`withDisposeSymbol(X.prototype)`
+ * 是幂等的，第一个实例付这次开销，之后只走 `in` 判断），绝不写成顶层语句：顶层调用会让整个模块
+ * 无法被 bundler 丢弃——只 import `cx` 的使用者也会把事件系统打进产物——同时它也是
+ * `package.json` 里 `"sideEffects": false` 能成立的前提。要把这类调用挪回顶层之前，请先读
+ * AGENTS.md 的构建一节。
  */
 
 /**
@@ -69,15 +82,38 @@ export const withDisposeSymbol = <T extends object>(target: T): T => {
  * @zh 共享的「无需释放」单例，等价于 VS Code 的 `Disposable.None`。凡是订阅没能注册成功的地方
  * （emitter 已释放、拒绝新监听器等）都返回它，各 store 收到它也什么都不做。
  */
-export const noopDisposable: CompatDisposable = Object.freeze(
-  // 分两步而不是把调用内联进 freeze：`Object.freeze` 有一个 `T extends Function` 的重载，内联时
-  // 它的上下文类型会参与外层泛型推断，把这里的返回类型带偏成 `Function`。
-  withDisposeSymbol({
-    dispose() {
-      /* noop */
-    },
-  } as CompatDisposable),
-)
+class NoopDisposable implements CompatDisposable {
+  constructor() {
+    withDisposeSymbol(NoopDisposable.prototype)
+    // 冻结的是实例：共享单例不该被谁悄悄改掉（原先在模块顶层 Object.freeze，见文件头说明）
+    Object.freeze(this)
+  }
+
+  dispose(): void {
+    /* noop */
+  }
+}
+
+export const noopDisposable: CompatDisposable = new NoopDisposable()
+
+/**
+ * @en Whether this is a development build, used to keep the "already disposed" warnings out of
+ * production consoles (a teardown race is not worth logging in a shipped app). Bare identifier on
+ * purpose: bundlers replace `process.env.NODE_ENV` with a literal, which is what lets the whole
+ * warning be eliminated from a production build.
+ * @zh 是否为开发构建，用来把「已经释放过了」的告警挡在生产控制台之外（拆卸期的竞态不值得在线上
+ * 应用里刷日志）。刻意用裸标识符：打包器会把 `process.env.NODE_ENV` 替换成字面量，整段告警因此
+ * 能从生产构建里被消除。
+ */
+declare const process: {env: Record<string, string | undefined>}
+
+const isDevelopment = (): boolean => {
+  try {
+    return process.env.NODE_ENV !== 'production'
+  } catch {
+    return true
+  }
+}
 
 /**
  * @en Check whether `thing` is {@link CompatDisposable}. The arity check mirrors VS Code: an object
@@ -150,6 +186,7 @@ class FunctionDisposable implements CompatDisposable {
   readonly #fn: () => void
 
   constructor(fn: () => void) {
+    withDisposeSymbol(FunctionDisposable.prototype)
     this.#fn = fn
   }
 
@@ -166,8 +203,6 @@ class FunctionDisposable implements CompatDisposable {
     this.#fn()
   }
 }
-
-withDisposeSymbol(FunctionDisposable.prototype)
 
 /**
  * @en Turn a cleanup function into a {@link CompatDisposable}. `fn` is guaranteed to run **once**
@@ -191,8 +226,10 @@ export function combinedDisposable(...disposables: CompatDisposable[]): CompatDi
  * @en Manages a collection of disposables.
  *
  * Preferred over a bare `CompatDisposable[]` because it handles the edge cases: the same value can
- * be added twice (the `Set` keeps one entry), and adding to an already-disposed store disposes the
- * newcomer immediately instead of leaking it.
+ * be added twice (the `Set` keeps one entry), and adding to an already-disposed store **warns and
+ * drops** the newcomer instead of registering it. Note the newcomer is *not* disposed for you (VS
+ * Code behaves the same way): the store cannot know whether the caller still holds it, so the choice
+ * stays with the caller — see `DisposableStore.DISABLE_DISPOSED_WARNING` to silence the warning.
  *
  * @example
  * ```ts
@@ -205,7 +242,9 @@ export function combinedDisposable(...disposables: CompatDisposable[]): CompatDi
  * @zh 管理一组可释放对象。
  *
  * 比裸的 `CompatDisposable[]` 可靠，因为它处理了边界情况：同一个值可以重复添加（`Set` 只留一份），
- * 往已释放的 store 里添加会立刻释放新来的对象，而不是泄漏它。
+ * 往已释放的 store 里添加会**告警并丢弃**新来的对象，而不是登记它。注意它**不会**替你释放新来的
+ * 对象（VS Code 也是如此）：store 无法判断调用方是否还持有它，这个选择留给调用方——要静默这条告警
+ * 见 `DisposableStore.DISABLE_DISPOSED_WARNING`。
  */
 export class DisposableStore implements CompatDisposable {
   /**
@@ -219,11 +258,15 @@ export class DisposableStore implements CompatDisposable {
   readonly #toDispose = new Set<CompatDisposable>()
   #isDisposed = false
 
+  constructor() {
+    withDisposeSymbol(DisposableStore.prototype)
+  }
+
   /**
    * @en Dispose of every registered disposable and mark this store as disposed. Later additions are
-   * disposed of on `add()`, so nothing leaks.
-   * @zh 释放所有已登记的对象并把本 store 标记为已释放。之后添加进来的对象会在 `add()` 时立刻被
-   * 释放，因此不会泄漏。
+   * dropped with a warning (they are *not* disposed of — see the class docs).
+   * @zh 释放所有已登记的对象并把本 store 标记为已释放。之后添加进来的对象会被告警丢弃（**不会**
+   * 被释放，见类文档）。
    */
   dispose(): void {
     if (this.#isDisposed) {
@@ -271,7 +314,7 @@ export class DisposableStore implements CompatDisposable {
     }
 
     if (this.#isDisposed) {
-      if (!DisposableStore.DISABLE_DISPOSED_WARNING) {
+      if (!DisposableStore.DISABLE_DISPOSED_WARNING && isDevelopment()) {
         console.warn(
           new Error(
             'Trying to add a disposable to a DisposableStore that has already been disposed of. The added object will be leaked!',
@@ -324,8 +367,6 @@ export class DisposableStore implements CompatDisposable {
   }
 }
 
-withDisposeSymbol(DisposableStore.prototype)
-
 /**
  * @en A map that owns the disposables it stores: overwriting or deleting a key releases the value
  * that was there.
@@ -346,6 +387,7 @@ export class DisposableMap<K, V extends CompatDisposable = CompatDisposable>
   #isDisposed = false
 
   constructor(store: Map<K, V> = new Map<K, V>()) {
+    withDisposeSymbol(DisposableMap.prototype)
     this.#store = store
   }
 
@@ -405,7 +447,7 @@ export class DisposableMap<K, V extends CompatDisposable = CompatDisposable>
    * `skipDisposeOnOverwrite`。
    */
   set(key: K, value: V, skipDisposeOnOverwrite = false): void {
-    if (this.#isDisposed) {
+    if (this.#isDisposed && isDevelopment()) {
       console.warn(
         new Error(
           'Trying to add a disposable to a DisposableMap that has already been disposed of. The added object will be leaked!',
@@ -463,5 +505,3 @@ export class DisposableMap<K, V extends CompatDisposable = CompatDisposable>
     return this.#store[Symbol.iterator]()
   }
 }
-
-withDisposeSymbol(DisposableMap.prototype)

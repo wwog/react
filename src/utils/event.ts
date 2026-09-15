@@ -932,7 +932,10 @@ export namespace Event {
     leakWarningThreshold?: number,
     disposable?: DisposableStore,
   ): Event<O> {
-    let subscription: CompatDisposable
+    // 与 debounce 一致地初始化：Emitter.dispose() 会无条件调用 onDidRemoveLastListener，
+    // 而「建好但从没人订阅就释放」是合法用法（把公开的节流事件交给 DisposableStore 管理，直到进程
+    // 结束都没有订阅者）。保持未初始化的话这里会抛 TypeError。
+    let subscription: CompatDisposable = noopDisposable
     let output: O | undefined = undefined
     let handle: ReturnType<typeof setTimeout> | undefined = undefined
     let numThrottledCalls = 0
@@ -1984,6 +1987,7 @@ export class Emitter<T> {
   protected _size = 0
 
   constructor(options?: EmitterOptions) {
+    withDisposeSymbol(Emitter.prototype)
     this._options = options
     if (_globalLeakWarningThreshold > 0 || this._options?.leakWarningThreshold) {
       this._leakWarningThreshold =
@@ -2173,9 +2177,11 @@ export class Emitter<T> {
 
     const index = listeners.indexOf(listener)
     if (index === -1) {
-      console.log('disposed?', this._disposed)
-      console.log('size?', this._size)
-      console.log('arr?', JSON.stringify(this._listeners))
+      console.error('Attempted to dispose unknown listener', {
+        disposed: this._disposed,
+        size: this._size,
+        listeners: JSON.stringify(this._listeners),
+      })
       throw new Error('Attempted to dispose unknown listener')
     }
 
@@ -2266,8 +2272,6 @@ export class Emitter<T> {
     return this._size > 0
   }
 }
-
-withDisposeSymbol(Emitter.prototype)
 
 // -------------------------------------------------------------------------------------------------
 // 投递队列：让多个 emitter 共享同一份投递状态，从而保证它们之间的事件顺序。
@@ -2511,8 +2515,6 @@ export class PauseableEmitter<T> extends Emitter<T> {
   }
 }
 
-withDisposeSymbol(PauseableEmitter.prototype)
-
 /**
  * @en Like {@link PauseableEmitter}, but the pause starts by itself on the first `fire()` and lifts
  * after `delay` — so a burst collapses into one merged event.
@@ -2611,6 +2613,7 @@ export class EventMultiplexer<T> implements CompatDisposable {
   private events: {event: Event<T>; listener: CompatDisposable | null}[] = []
 
   constructor() {
+    withDisposeSymbol(EventMultiplexer.prototype)
     this.emitter = new Emitter<T>({
       onWillAddFirstListener: () => this.onFirstListenerAdd(),
       onDidRemoveLastListener: () => this.onLastListenerRemove(),
@@ -2687,8 +2690,6 @@ export class EventMultiplexer<T> implements CompatDisposable {
   }
 }
 
-withDisposeSymbol(EventMultiplexer.prototype)
-
 /**
  * @en The public face of {@link DynamicListEventMultiplexer}: an aggregated event plus disposal.
  * @zh {@link DynamicListEventMultiplexer} 的公开形态：聚合事件加释放能力。
@@ -2719,6 +2720,7 @@ export class DynamicListEventMultiplexer<TItem, TEventType>
     onRemoveItem: Event<TItem>,
     getEvent: (item: TItem) => Event<TEventType>,
   ) {
+    withDisposeSymbol(DynamicListEventMultiplexer.prototype)
     const multiplexer = this._store.add(new EventMultiplexer<TEventType>())
     const itemListeners = this._store.add(new DisposableMap<TItem, CompatDisposable>())
 
@@ -2756,8 +2758,6 @@ export class DynamicListEventMultiplexer<TItem, TEventType>
     this._store.dispose()
   }
 }
-
-withDisposeSymbol(DynamicListEventMultiplexer.prototype)
 
 /**
  * @en The EventBufferer is useful in situations in which you want to delay firing your events
@@ -2931,6 +2931,10 @@ export class Relay<T> implements CompatDisposable {
     },
   })
 
+  constructor() {
+    withDisposeSymbol(Relay.prototype)
+  }
+
   /** @zh 转发出去的事件。`@en` The forwarded event. */
   readonly event: Event<T> = this.emitter.event
 
@@ -2958,8 +2962,6 @@ export class Relay<T> implements CompatDisposable {
     this.emitter.dispose()
   }
 }
-
-withDisposeSymbol(Relay.prototype)
 
 /**
  * @en A value plus a notification that it changed — the read-anytime counterpart to {@link Event}.

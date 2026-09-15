@@ -72,6 +72,33 @@ src/
 
 `useEventValue` 的初值与写入都走「函数形式」（`useState(() => initial)` / `setValue(() => payload)`）：事件载荷允许是函数，直接写会被 React 当成惰性初始化函数或状态更新器。这条有专门的测试。
 
+### 构建：分模块输出，模块顶层不许有副作用
+
+`build.config.ts` 用 `preserveModules` 分模块产出（`dist/utils/event.js` 等），`package.json` 声明了 `"sideEffects": false`。这两条是为了让消费者的打包器能把没 import 的模块整块丢掉——打成单文件时做不到：桶文件里任何一个模块级副作用都会让整包被拉进来（实测「只 import `cx`」从 255 B 变成 28 kB）。
+
+因此有三条约束，改动前请先确认：
+
+1. **模块顶层不做调用/构造**：`withDisposeSymbol(X.prototype)` 这类安装写在各自**构造函数**里（幂等，第一个实例付开销，之后只走 `in` 判断），`noopDisposable` 也由类的构造函数完成冻结与符号安装。顶层语句会让这个模块永远无法被丢弃，也会让 `sideEffects: false` 变成谎话。
+2. **`Symbol.dispose` 不进公开类型**：仍然只在运行时挂（原因见 `src/utils/disposable.ts` 模块头），lib 停在 `esnext.disposable` 之前的使用者照样能编译。
+3. **新增模块沿用同一规则**：模块级的 `const x = Symbol(...)` / `new Map()` 只是纯分配，可以保留；任何会被打包器视为副作用的顶层语句（调用、赋值、原型改写、全局注册）都要挪进函数里。
+
+验证方式（改完构建或加了新模块时跑一次）：
+
+```bash
+pnpm build
+# 只 import 一个无关工具函数，产物里不应出现事件系统
+npx esbuild <(echo 'import {cx} from "./dist/index.js";console.log(cx("a"))') \
+  --bundle --format=esm --minify --external:react --external:react-dom --outfile=/tmp/probe.js
+grep -c "LEAK detected" /tmp/probe.js   # 期望 0
+```
+
+### 文档与 skill 的两个硬限制
+
+- `use-wwog-react.md` 是给人看的契约文档，同时也是一个 skill 文件：frontmatter 必须是**合法 YAML**（`description` 里的冒号要用 `>-` 块标量承载），且 **`description` 不得超过 1024 字符——超了 skill 会被直接丢弃**；另外它在模型侧只呈现前约 250 字符，触发词与「只在已依赖本库时使用」这句守卫必须靠前。改这段文案后用 `yaml.safe_load` 与 `len()` 各验一次。
+- biome 的 `files.include` 覆盖 `src/**/*.ts` 与 `src/**/*.tsx`，但 `src/**/*.tsx` 通过 overrides **只 lint、不格式化/不整理 import**：组件目录里的 TSX 一直是双引号 + 分号的风格，让 biome 格式化会整体重排；而关掉格式化后 `organizeImports` 会把 import 排成 `{type A, type B, fn }`（没有格式化收尾，多一个空格），属于不该混进来的噪音。示例站点（`example/**`）仍不在检查范围内。
+
+  另外两条踩过的坑：biome 对 `.tsx` 的**自动修复有两个会破坏代码**——`useImportType` 看不到本仓库的经典 JSX pragma（`jsx: "react"`），会把 `import React, {useMemo} from "react"` 改成 `import type React from "react"` 并连带删掉值导入（已在 overrides 里关闭该规则）；`useArrowFunction` 遇到 `X = function () { return {...} as T }` 这种形状会连 `return` 一起删掉，这类位置要手改，别用 `--fix`。改完请再跑一次 `pnpm check --write` 确认它是幂等的（应当输出 No fixes applied）。
+
 ## 测试
 
 测试文件与源文件同目录（`*.test.ts` / `*.test.tsx`），使用 `vitest-browser-react` 在真实浏览器环境运行。新增组件需在同目录添加对应测试文件。

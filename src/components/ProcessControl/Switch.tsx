@@ -111,7 +111,7 @@ export const Switch = <T,>(
 Switch.displayName = "Switch";
 Switch.Case = Case;
 Switch.Default = Default;
-Switch.createTyped = function <T>() {
+Switch.createTyped = <T,>() => {
   return {
     Switch: Switch<T>,
     Case: Case<T>,

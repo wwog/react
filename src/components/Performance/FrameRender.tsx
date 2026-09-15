@@ -896,11 +896,11 @@ function FrameRenderInner<P extends object>(
   )
 
   // 开发提示：只打一次，且只在挂载时判断 warn 的取值。
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在挂载时判定一次 warn / supported
   useEffect(() => {
     if (props.warn === false) return
     warnStateless()
     if (!supported) warnChildren()
-    // biome-ignore lint/correctness/useExhaustiveDependencies: 只在挂载时提示一次
   }, [])
 
   // 标签页可见性：隐藏时停下，重新可见时若仍有待处理值就继续泵。

@@ -1,4 +1,4 @@
-import React, { Fragment, type ReactNode } from "react";
+import React, { type ReactNode } from "react";
 
 export interface RepeatProps {
   /**
@@ -30,5 +30,5 @@ export function Repeat({ times, children }: RepeatProps): ReactNode {
   for (let i = 0; i < times; i++) {
     items.push(children(i));
   }
-  return <Fragment>{items}</Fragment>;
+  return items;
 }

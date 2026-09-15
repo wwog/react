@@ -51,7 +51,7 @@ export function DateRender<T = string>({
     if (source instanceof Date) return source;
     if (typeof source === "string" || typeof source === "number") {
       const parsed = new Date(source);
-      return isNaN(parsed.getTime()) ? null : parsed;
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
     return null;
   }, [source]);

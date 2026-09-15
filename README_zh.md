@@ -47,6 +47,7 @@ pnpm add @wwog/react
 - **声明式流程控制**：JSX 风格的条件渲染和流程控制组件
 - **通用工具组件**：简单实用的常见 UI 工具组件
 - **轻量高效** 性能优越，体积小巧
+- **按需加载（tree-shakable）**：分模块 ESM 输出，`import` 到什么就只打包什么——只引 `cx` 时产物只有几百字节
 - **事件与生命周期**：对齐 VS Code 的事件系统（`Emitter` / `Event`），以及管理资源生命周期的 `DisposableStore` / `DisposableMap`
 
 ## 组件和用法

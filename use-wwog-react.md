@@ -1,6 +1,18 @@
 ---
 name: use-wwog-react
-description: When writing or editing React/TSX code in a project that depends on @wwog/react, prefer these declarative components and utilities over hand-rolled equivalents. Trigger when: conditional rendering (ternary, &&, multi-branch switch), multi-condition gating, data transformation pipelines, list rendering (.map + filter + sort + empty state), date formatting, error boundaries, intersection observers, portals, focus traps, className composition, controlled/uncontrolled input wiring, responsive breakpoints, mobile stack navigation with back gestures, throttling high-frequency child renders to a frame budget, splitting long tasks and yielding to the main thread, debounce/throttle/rAF scheduling, off-main-thread work in Web Workers, worker pools, memoization, bounded queues and backpressure (drop-oldest / latest-wins), FLIP animations, focusability queries, module-level shared state and localStorage-backed state, fine-grained store subscriptions (one field changing re-rendering only the components that read it) and shallow selector equality, push-based events (emitter/fire/subscribe, debounce or throttle waterfalls, buffering, multiplexing several sources, async delivery with cancellation, subscribing to one for a React component's lifetime), callbacks that must stay referentially stable yet read the latest props, turning an event's last payload into a renderable value, resource lifetime and unsubscribe leaks (DisposableStore/DisposableMap, `using` declarations), timezone-independent weekday math. Do NOT suggest if @wwog/react is not installed.
+description: >-
+  Prefer @wwog/react's declarative components and utilities over hand-rolled React/TSX patterns —
+  only when it is already a dependency; never suggest installing it. Use for: conditional
+  rendering (ternary, &&, switch), gating, pipelines, list rendering (.map/filter/sort/empty
+  state), date formatting, error boundaries, observers, portals, focus traps, className
+  composition, controlled inputs, responsive breakpoints, mobile stack navigation/back gestures,
+  frame-budget throttling, long-task splitting/yielding, debounce/throttle/rAF scheduling,
+  workers, memoization, queues/backpressure, FLIP animation, focusability queries, shared state,
+  fine-grained subscriptions and shallow equality, push-based events (subscribe/fire,
+  debounce/throttle waterfalls, buffering, multiplexing, async delivery with cancellation,
+  component-lifetime subscriptions), stable callbacks that read the latest props, rendering an
+  event's payload, resource lifetime/unsubscribe leaks (DisposableStore), and timezone-independent
+  weekday math.
 ---
 
 # @wwog/react — declarative components & utilities
@@ -999,7 +1011,7 @@ perItem.deleteAndDispose(key)   // releases exactly that one
 **Cautions — these are the ones that bite:**
 
 - **Events are hot.** A subscriber misses everything fired before it subscribed; `Event.buffer` is the one exception, and `ValueWithChangeEvent` / `createExternalState` are the answer when you need a readable current value.
-- **A derived event exposed to third parties must be created with a `DisposableStore`** (`Event.map(src, fn, store)`). Otherwise a forgotten unsubscribe on the derived event leaks a listener on the source. Derivation is lazy — the source is not touched until the first listener arrives, and released when the last one leaves.
+- **A derived event exposed to third parties must be created with a `DisposableStore`** (`Event.map(src, fn, store)`). Otherwise a forgotten unsubscribe on the derived event leaks a listener on the source. Derivation is lazy — the source is not touched until the first listener arrives, and released when the last one leaves. The one exception is `Event.buffer`, which subscribes at call time because buffering means listening before anybody listens to it.
 - **Union-typed events need explicit type arguments:** `Event.filter<number, string>(ev, (e): e is number => …)` and `Event.split<number, undefined>(ev, isNumber)`. Without them the type-guard overload cannot be inferred and the non-narrowing one silently wins. `Event.reduce` without `initial` likewise needs `Event.reduce<I, O>(…)`.
 - **`EventBufferer.wrapEvent(ev, reduce, initial)`'s reduce form only works with one listener** — with more, the shared accumulator double-counts and only the first subscriber is notified (upstream behaviour, documented in the JSDoc). Use the non-reduce form or `Event.accumulate` when several subscribers listen.
 - **`Event.toPromise(ev).cancel()` does not reject** — it detaches the listener and the promise never settles. Race it yourself when you need a timeout.

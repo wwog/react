@@ -769,6 +769,46 @@ describe('Event 时间相关组合子', () => {
     expect(seen).toEqual([1, 5])
   })
 
+  it('建好但从没人订阅就释放 store，不应抛错（throttle 曾经的未初始化 subscription）', () => {
+    // Emitter.dispose() 会无条件调用 onDidRemoveLastListener，所以「建好即释放」是合法路径：
+    // 公开的节流事件交给 DisposableStore 管，而订阅它的 UI 始终没渲染，就是这种情况。
+    const source = new Emitter<number>()
+    const store = new DisposableStore()
+    Event.throttle<number, number>(source.event, (_last, e) => e, 100, true, true, undefined, store)
+    expect(() => store.dispose()).not.toThrow()
+  })
+
+  it('其余组合子在同一路径下也不应抛错（对照组）', () => {
+    const source = new Emitter<number>()
+    const store = new DisposableStore()
+    Event.map(source.event, (value) => value, store)
+    Event.filter(source.event, () => true, store)
+    Event.debounce<number, number>(
+      source.event,
+      (_last, e) => e,
+      100,
+      false,
+      false,
+      undefined,
+      store,
+    )
+    Event.accumulate(source.event, 100, true, store)
+    Event.defer(source.event, true, store)
+    Event.buffer(source.event, 'dispose-without-subscriber', false, [], store)
+    Event.latch(source.event, undefined, store)
+    expect(() => store.dispose()).not.toThrow()
+  })
+
+  it('buffer 在调用时就订阅源：惰性派生的唯一例外，值得固化成文档行为', () => {
+    const source = new Emitter<number>()
+    expect(source.hasListeners()).toBe(false)
+
+    // 缓冲的语义就是「在别人监听之前先听」，所以这里会立刻挂上监听器；
+    // 调用后既不订阅它、又不通过 store 释放它，源上就会一直留着这个监听器
+    Event.buffer(source.event, 'eager')
+    expect(source.hasListeners()).toBe(true)
+  })
+
   it('throttle 支持 MicrotaskDelay', async () => {
     const emitter = new Emitter<number>()
     const seen: number[] = []

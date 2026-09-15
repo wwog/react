@@ -2,11 +2,10 @@ import React, {
   Children,
   cloneElement,
   FC,
-  Fragment,
   isValidElement,
   type HTMLElementType,
 } from "react";
-import { cx, type CxInput } from "../../utils/cx";
+import { type CxInput, cx } from "../../utils/cx";
 
 export interface StylesDescriptor {
   base?: CxInput;
@@ -93,7 +92,7 @@ export const Styles: FC<StylesProps> = ({
   }
 
   if (!className) {
-    return <Fragment>{children}</Fragment>;
+    return children;
   }
 
   const generatedClassName =
@@ -107,7 +106,7 @@ export const Styles: FC<StylesProps> = ({
     console.error(
       "<Styles>: children has more than one child. Please check your code."
     );
-    return <Fragment>{children}</Fragment>;
+    return children;
   }
   if (isValidElement(children)) {
     const typeChildren = children as any;
@@ -126,6 +125,6 @@ export const Styles: FC<StylesProps> = ({
   console.error(
     "<Styles>: children is not a valid React element. Please check your code."
   );
-  return <Fragment>{children}</Fragment>;
+  return children;
 };
 Styles.displayName = "W/Styles";

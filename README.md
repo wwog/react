@@ -45,6 +45,7 @@ pnpm add @wwog/react
 - **Declarative flow control**: JSX-style conditional rendering and flow control components
 - **Utility components**: Simple and practical common UI utility components
 - **Lightweight and efficient** Excellent performance and compact size
+- **Tree-shakable**: per-module ESM output, so an import pulls only the modules it uses — importing `cx` alone ships a few hundred bytes
 - **Events & lifetime**: a VS Code-compatible event system (`Emitter` / `Event`) with `DisposableStore` / `DisposableMap` for resource lifetime
 
 ## Components & Usage

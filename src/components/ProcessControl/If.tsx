@@ -89,7 +89,7 @@ If.displayName = "If";
 If.Then = Then;
 If.ElseIf = ElseIf;
 If.Else = Else;
-If.createTyped = function () {
+If.createTyped = () => {
   return {
     If,
     Then,

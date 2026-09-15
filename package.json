@@ -1,6 +1,6 @@
 {
   "name": "@wwog/react",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "A practical React component library providing declarative flow control and common UI utility components to make your React code more concise and readable.",
   "keywords": [
     "react",
@@ -12,6 +12,7 @@
   "author": "wwog",
   "type": "module",
   "main": "dist/index.js",
+  "sideEffects": false,
   "module": "dist/index.js",
   "types": "dist/index.d.mts",
   "files": [

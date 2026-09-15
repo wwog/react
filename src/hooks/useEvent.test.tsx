@@ -1,4 +1,4 @@
-import React, {StrictMode, act as reactAct, useEffect, useMemo, useState} from "react";
+import React, {StrictMode, act as reactAct, useEffect, useRef, useState} from "react";
 import {describe, expect, it} from "vitest";
 import {render} from "vitest-browser-react";
 import {Emitter, Event} from "../utils";
@@ -163,19 +163,19 @@ describe("useEvent", () => {
     expect(seen).toEqual([2]);
   });
 
-  it("配套注意：内联新建的派生事件每轮渲染都会换源，useMemo 之后不会", () => {
+  it("配套注意：内联新建的派生事件每轮渲染都会换源，稳定化之后不会", () => {
     const {emitter, count} = createCountedEmitter<number>();
     const stable: number[] = [];
     const inline: string[] = [];
 
     function Stable({factor}: {factor: number}) {
-      const doubled = useMemo(
-        () => Event.map(emitter.event, (value) => value * factor),
-        // 演示用：只依赖 emitter，故意不看 factor（factor 通过 ref 语义取最新值即可）
-        // biome-ignore lint/correctness/useExhaustiveDependencies: 展示稳定化的最小写法
-        [emitter],
-      );
-      useEvent(doubled, (value) => stable.push(value));
+      // 派生事件只建一次：ref 惰性建，最新 factor 也经由 ref 读取——这正是「稳定化派生事件 +
+      // 仍然读到最新闭包」的写法（组件里同样可以用 useMemo，效果一致）
+      const factorRef = useRef(factor);
+      factorRef.current = factor;
+      const doubledRef = useRef<Event<number> | null>(null);
+      doubledRef.current ??= Event.map(emitter.event, (value) => value * factorRef.current);
+      useEvent(doubledRef.current, (value) => stable.push(value));
       return null;
     }
 
